@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>프로필 설정</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+</head>
+<body class="bg-pink-50 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-xl shadow-md w-[24rem] border border-pink-200">
+    <h2 class="text-2xl font-bold text-pink-500 mb-6 text-center">프로필 설정</h2>
+    <form id="profile-setup-form" class="flex flex-col space-y-4">
+      <label class="text-sm text-gray-600">프로필 이미지 URL</label>
+      <input type="text" id="profileImage" placeholder="이미지 URL을 입력하세요" class="p-2 border border-pink-300 rounded" />
+
+      <label class="text-sm text-gray-600">한 줄 소개 (bio)</label>
+      <input type="text" id="bio" placeholder="자기소개를 입력하세요" class="p-2 border border-pink-300 rounded" required />
+
+      <label class="text-sm text-gray-600">관심 태그 (콤마로 구분)</label>
+      <input type="text" id="tags" placeholder="#동아리, #연애, #고양이" class="p-2 border border-pink-300 rounded" />
+
+      <button type="submit" class="bg-pink-400 text-white py-2 rounded hover:bg-pink-500">저장하고 시작하기</button>
+    </form>
+  </div>
+
+  <!-- ✅ Firebase 프로필 설정 + 이미지 업로드 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2aaHhJvjqaxj9SYjDY05y0TYiEAa8vmc",
+      authDomain: "dongstory-e5a28.firebaseapp.com",
+      projectId: "dongstory-e5a28",
+      storageBucket: "dongstory-e5a28.appspot.com",
+      messagingSenderId: "835308091634",
+      appId: "1:835308091634:web:24afe4c5ac6885e58a786b",
+      measurementId: "G-Q06TPW85W0"
+    };
+  
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+  
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+  
+      const form = document.getElementById("profile-setup-form");
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+  
+        const profileImageUrl = document.getElementById("profileImage").value;
+        const bio = document.getElementById("bio").value;
+        const tags = document.getElementById("tags").value.split(',').map(tag => tag.trim()).filter(tag => tag);
+  
+        // 유효한 URL인지 확인 (간단한 예시)
+        const isValidUrl = /^(ftp|http|https):\/\/[^ "]+$/.test(profileImageUrl);
+        if (!isValidUrl) {
+          alert("유효한 이미지 URL을 입력하세요.");
+          return;
+        }
+  
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+          profileImage: profileImageUrl,
+          bio,
+          tags
+        });
+  
+        alert("프로필 설정이 완료되었습니다!");
+        window.location.href = "main.html";
+      });
+    });
+  </script>
+</body>
+</html>

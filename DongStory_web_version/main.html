@@ -28,6 +28,7 @@
         <button class="block hover:text-pink-700">👥 커뮤니티</button>
         <button class="block hover:text-pink-700">⚙️ 설정</button>
         <button class="block hover:text-pink-700">👤 프로필</button>
+        <button onclick="logout()" class="block hover : text-red-600 text-red-400">로그아웃</button>
       </div>
     </aside>
 
@@ -108,9 +109,9 @@
           <div class="bg-white p-4 rounded-2xl shadow mt-6 space-y-4">
             <h2 class="text-pink-600 font-bold text-lg">👥 추천 친구</h2>
             <ul class="space-y-2 text-sm text-gray-700">
-              <li>@jiwoo_02</li>
-              <li>@donghoon_dev</li>
-              <li>@campus_life</li>
+              <li><a href="profile.html?user=jiwoo_02" class="hover:underline">@jiwoo_02</a></li>
+              <li><a href="profile.html?user=donghoon_dev" class="hover:underline">@donghoon_dev</a></li>
+              <li><a href="profile.html?user=campus_life" class="hover:underline">@campus_life</a></li>
             </ul>
           </div>
         </aside>
@@ -139,7 +140,8 @@
           button.disabled = true;
           button.classList.add('opacity-50', 'cursor-not-allowed');
         }
-    
+
+
         function scrollSlider(direction) {
           const slider = document.getElementById('imageSlider');
           const scrollAmount = slider.offsetWidth;
@@ -156,7 +158,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD2aaHhJvjqaxj9SYjDY05y0TYiEAa8vmc",
@@ -183,6 +185,14 @@
     querySnapshot.forEach((doc) => {
       console.log(doc.id, " => ", doc.data());
     });
+
+    window.logout = function () {
+      signOut(auth).then(() => {
+        window.location.href = "login.html";
+      }).catch((error) => {
+        alsrt("로그아웃 실패 : " + error.message); 
+      });
+    };
   </script>
 </body>
 </html>

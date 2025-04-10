@@ -13,7 +13,7 @@
     });
 
     function checkNickname() {
-      const nickname = document.getElementById('nickname').value;
+      const nickname = document.getElementById('username').value;
       const result = document.getElementById('nickname-check-result');
       const regex = /^[A-Za-z0-9가-힣]{2,16}$/;
 
@@ -43,34 +43,28 @@
     <form id="register-form" class="flex flex-col space-y-3">
       <input type="text" name="name" placeholder="이름" class="w-full p-3 border border-pink-300 rounded" required />
       
-      <input type="text" id="nickname" placeholder="닉네임 (중복확인)" class="w-full p-3 border border-pink-300 rounded" required />
+      <input type="text" id="username" placeholder="닉네임 (중복확인)" class="w-full p-3 border border-pink-300 rounded" required />
       <button type="button" onclick="checkNickname()" class="text-sm text-blue-500 hover:underline text-left">중복 확인</button>
       <p id="nickname-check-result" class="text-sm"></p>
 
       <input type="email" id="email" name="email" placeholder="이메일" class="w-full p-3 border border-pink-300 rounded" required />
       <input type="password" id="password" name="password" placeholder="비밀번호" class="w-full p-3 border border-pink-300 rounded" required />
-      <input type="text" name="studentId" placeholder="학번" class="w-full p-3 border border-pink-300 rounded" required />
 
-      <select name="major" class="w-full p-3 border border-pink-300 rounded" required>
-        <option value="">학과 선택</option>
-        <option value="컴퓨터소프트웨어학과">컴퓨터소프트웨어학과</option>
-        <option value="전자공학과">전자공학과</option>
-        <option value="경영학과">경영학과</option>
-        <option value="기타">기타</option>
+      <input type="text" name="studentId" placeholder="학번 (예: 2000000 7자리)" class="w-full p-3 border border-pink-300 rounded" required />
+
+      <select id="status" class="w-full p-3 border border-pink-300 rounded" required>
+        <option value="">현재 상태 선택</option>
+        <option value="재학생">재학생</option>
+        <option value="휴학">휴학</option>
+        <option value="군휴학">군휴학</option>
+        <option value="복학생">복학생</option>
+        <option value="졸업">졸업</option>
       </select>
 
-      <select name="gender" class="w-full p-3 border border-pink-300 rounded" required>
-        <option value="">성별 선택</option>
-        <option value="male">남성</option>
-        <option value="female">여성</option>
-      </select>
-
-      <input type="tel" name="phone" placeholder="전화번호" class="w-full p-3 border border-pink-300 rounded" required />
-      
-      <select name="role" class="w-full p-3 border border-pink-300 rounded" required>
-        <option value="">역할 선택</option>
-        <option value="student">학생</option>
-        <option value="professor">교수</option>
+      <select id="identity" class="w-full p-3 border border-pink-300 rounded" required>
+        <option value="">신분 선택</option>
+        <option value="학생">학생</option>
+        <option value="교직원 신청">교수/조교 (관리자 승인 필요)</option>
       </select>
 
       <button type="submit" class="bg-pink-400 text-white font-semibold py-2 rounded-lg hover:bg-pink-500">회원가입</button>
@@ -84,6 +78,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyD2aaHhJvjqaxj9SYjDY05y0TYiEAa8vmc",
@@ -97,17 +92,53 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    // ✅ 회원가입 이벤트
     document.getElementById("register-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
+      const username = document.getElementById("username").value;
+      const displayName = document.querySelector('input[name="name"]').value;
+      const profileImage = "https://source.unsplash.com/100x100?person";
+
+      const studentId = document.querySelector('input[name="studentId"]').value;
+      const status = document.getElementById("status").value;
+      const identity = document.getElementById("identity").value;
+
+      const expectedGraduation = parseInt(studentId) + 4;
+      let role = identity === "교직원 신청" ? "pending_staff" : "student";
+
+      const specialCharRegex = /[!@#$%^&*.]/;
+      if (password.length < 6) {
+        alert("비밀번호는 최소 6자 이상이어야 합니다.");
+        return;
+      }
+      if (!specialCharRegex.test(password)) {
+        alert("비밀번호에 특수문자를 포함해야 합니다.");
+        return;
+      }
 
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         console.log("✅ 회원가입 성공:", user.email);
+
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          email: user.email,
+          username: username,
+          displayName: displayName,
+          studentId: studentId,
+          status: status,
+          expectedGraduation: expectedGraduation,
+          role: role,
+          profileImage: profileImage,
+          bio: "",
+          createdAt: serverTimestamp(),
+        });
+
         alert("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
         window.location.href = "login.html";
       } catch (error) {
