@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CampusLink 회원가입</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    document.addEventListener('mousemove', e => {
+      document.body.style.setProperty('--x', `${e.clientX}px`);
+      document.body.style.setProperty('--y', `${e.clientY}px`);
+    });
+
+    function checkNickname() {
+      const nickname = document.getElementById('nickname').value;
+      const result = document.getElementById('nickname-check-result');
+      const regex = /^[A-Za-z0-9가-힣]{2,16}$/;
+
+      if (!regex.test(nickname)) {
+        result.textContent = '형식이 올바르지 않습니다 (특수문자 제외, 2~16자).';
+        result.className = 'text-red-500 text-sm mt-1';
+        return;
+      }
+
+      const usedNicknames = ['admin', 'test', 'user1'];
+      if (usedNicknames.includes(nickname)) {
+        result.textContent = '이미 사용 중인 별명입니다.';
+        result.className = 'text-red-500 text-sm mt-1';
+      } else {
+        result.textContent = '사용 가능한 별명입니다!';
+        result.className = 'text-green-500 text-sm mt-1';
+      }
+    }
+  </script>
+</head>
+
+<body class="flex items-center justify-center min-h-screen login-bg">
+  <div class="bg-white p-10 rounded-2xl shadow-lg w-[24rem] border border-pink-200 transition-transform transform hover:scale-105">
+    <h2 class="text-4xl font-extrabold text-center text-pink-500 mb-8">회원가입</h2>
+
+    <!-- ✅ 회원가입 폼 -->
+    <form id="register-form" class="flex flex-col space-y-3">
+      <input type="text" name="name" placeholder="이름" class="w-full p-3 border border-pink-300 rounded" required />
+      
+      <input type="text" id="nickname" placeholder="닉네임 (중복확인)" class="w-full p-3 border border-pink-300 rounded" required />
+      <button type="button" onclick="checkNickname()" class="text-sm text-blue-500 hover:underline text-left">중복 확인</button>
+      <p id="nickname-check-result" class="text-sm"></p>
+
+      <input type="email" id="email" name="email" placeholder="이메일" class="w-full p-3 border border-pink-300 rounded" required />
+      <input type="password" id="password" name="password" placeholder="비밀번호" class="w-full p-3 border border-pink-300 rounded" required />
+      <input type="text" name="studentId" placeholder="학번" class="w-full p-3 border border-pink-300 rounded" required />
+
+      <select name="major" class="w-full p-3 border border-pink-300 rounded" required>
+        <option value="">학과 선택</option>
+        <option value="컴퓨터소프트웨어학과">컴퓨터소프트웨어학과</option>
+        <option value="전자공학과">전자공학과</option>
+        <option value="경영학과">경영학과</option>
+        <option value="기타">기타</option>
+      </select>
+
+      <select name="gender" class="w-full p-3 border border-pink-300 rounded" required>
+        <option value="">성별 선택</option>
+        <option value="male">남성</option>
+        <option value="female">여성</option>
+      </select>
+
+      <input type="tel" name="phone" placeholder="전화번호" class="w-full p-3 border border-pink-300 rounded" required />
+      
+      <select name="role" class="w-full p-3 border border-pink-300 rounded" required>
+        <option value="">역할 선택</option>
+        <option value="student">학생</option>
+        <option value="professor">교수</option>
+      </select>
+
+      <button type="submit" class="bg-pink-400 text-white font-semibold py-2 rounded-lg hover:bg-pink-500">회원가입</button>
+      <p class="mt-5 text-sm text-center">
+        이미 계정이 있으신가요? <a href="login.html" class="text-pink-500 font-medium hover:underline">로그인</a>
+      </p>
+    </form>
+  </div>
+
+  <!-- ✅ Firebase 회원가입 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyD2aaHhJvjqaxj9SYjDY05y0TYiEAa8vmc",
+      authDomain: "dongstory-e5a28.firebaseapp.com",
+      projectId: "dongstory-e5a28",
+      storageBucket: "dongstory-e5a28.firebasestorage.app",
+      messagingSenderId: "835308091634",
+      appId: "1:835308091634:web:24afe4c5ac6885e58a786b",
+      measurementId: "G-Q06TPW85W0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // ✅ 회원가입 이벤트
+    document.getElementById("register-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        console.log("✅ 회원가입 성공:", user.email);
+        alert("회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.");
+        window.location.href = "login.html";
+      } catch (error) {
+        console.error("❌ 회원가입 실패:", error.message);
+        alert("회원가입 실패: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>
