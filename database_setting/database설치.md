@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/37bc8b11-5aca-45af-9b17-d2cbc2893278)# Donstory DataBase 설정
+# Donstory DataBase 설정
 
 1. Nodejs 설치
    
