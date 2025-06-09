@@ -1,4 +1,4 @@
-# Donstory DataBase 설정
+![image](https://github.com/user-attachments/assets/37bc8b11-5aca-45af-9b17-d2cbc2893278)# Donstory DataBase 설정
 
 1. Nodejs 설치
    
@@ -38,8 +38,10 @@ Execute 클릭
 
 password에다가 비밀번호 입력 후에 next
 
+--- 
 
 ### node.js 명령어
+
 win + R 
 cmd입력 후
 
@@ -50,9 +52,21 @@ npm init -y
 ![image](https://github.com/user-attachments/assets/ffc37742-d14a-482e-92d7-c8477e08d13c)
 
 
+---
+
 ### VSCODE 활용
 
-TERMINAL에서  입력
+**0. 패키지 설치**
+
+| **pip installs**  |  설명 |
+|--------------|----------|
+|  npm install bcryptjs jsonwebtoken |  회원가입 & 로그인 기능  |
+|                                    |          |
+
+
+
+
+**1. TERMINAL에서  입력**
 
 | **pip installs**  |
 |--------------|
@@ -65,8 +79,7 @@ TERMINAL에서  입력
 
 ![image](https://github.com/user-attachments/assets/620a7883-d43a-4eff-ac2e-efc5178bd115)
 
-
-
+---
 
 
 
@@ -100,7 +113,7 @@ USE sns_db;
 
 **2. 테이블 만들기**
 
-CREATE TABLE user (
+   - CREATE TABLE user (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL,
   password VARCHAR(255) NOT NULL,
