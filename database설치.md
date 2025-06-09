@@ -1,11 +1,13 @@
-### DataBase 설정
+# Donstory DataBase 설정
 
 1. Nodejs 설치
-   https://nodejs.org/ko
+   
+   URL : https://nodejs.org/ko
 
-
-2. mySQL 설치
-   https://dev.mysql.com/downloads/installer/
+3. mySQL 설치
+   
+   URL : https://dev.mysql.com/downloads/installer/
+   
 
 ![image](https://github.com/user-attachments/assets/4b9ec385-55f6-4b3e-a610-b0adc71484f6)
 
@@ -36,5 +38,79 @@ Execute 클릭
 
 password에다가 비밀번호 입력 후에 next
 
+### DataBase 명령어.
 
 
+**1. DB생성**
+CREATE DATABASE sns_db DEFAULT CHARACTER SET utf8mb4;
+USE sns_db;
+
+**2. 테이블 만들기**
+
+CREATE TABLE user (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  name VARCHAR(50) NOT NULL,
+  email VARCHAR(100) NOT NULL,
+  profile_img VARCHAR(255),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE post (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  category VARCHAR(30),
+  title VARCHAR(100),
+  content TEXT,
+  image_url VARCHAR(255),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
+CREATE TABLE comment (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  post_id INT NOT NULL,
+  user_id INT NOT NULL,
+  content TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES post(id),
+  FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
+CREATE TABLE notice (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  title VARCHAR(100),
+  content TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (admin_id) REFERENCES user(id)
+);
+
+CREATE TABLE chat_room (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100),
+  is_group BOOLEAN,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE chat_room_user (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id INT NOT NULL,
+  user_id INT NOT NULL,
+  FOREIGN KEY (chatroom_id) REFERENCES chat_room(id),
+  FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
+CREATE TABLE chat_message (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id INT NOT NULL,
+  sender_id INT NOT NULL,
+  message TEXT,
+  file_url VARCHAR(255),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (chatroom_id) REFERENCES chat_room(id),
+  FOREIGN KEY (sender_id) REFERENCES user(id)
+);
+
+3. 생성된 테이블에 더미데이터 추가.
