@@ -38,6 +38,59 @@ Execute 클릭
 
 password에다가 비밀번호 입력 후에 next
 
+
+### node.js 명령어
+win + R 
+cmd입력 후
+
+mkdir sns-backed
+cd sns-backed
+npm init -y
+
+![image](https://github.com/user-attachments/assets/ffc37742-d14a-482e-92d7-c8477e08d13c)
+
+
+### VSCODE 활용
+
+TERMINAL에서  입력
+
+| **pip installs**  |
+|--------------|
+|  npm init -y  |
+|  npm install express mysql2 cors dotenv  |
+|  npm install socket.io  |
+
+
+
+
+![image](https://github.com/user-attachments/assets/620a7883-d43a-4eff-ac2e-efc5178bd115)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ### DataBase 명령어.
 
 
@@ -113,4 +166,13 @@ CREATE TABLE chat_message (
   FOREIGN KEY (sender_id) REFERENCES user(id)
 );
 
-3. 생성된 테이블에 더미데이터 추가.
+**3. 생성된 테이블에 더미데이터 추가.**
+
+
+
+
+
+
+
+
+
