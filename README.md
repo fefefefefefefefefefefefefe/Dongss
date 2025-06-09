@@ -32,9 +32,20 @@ next 클릭
 
 ![image](https://github.com/user-attachments/assets/429e64e8-75bc-4e06-a98b-5abb38fcfeec)
 
+next 클릭
+
+![image](https://github.com/user-attachments/assets/7f1bb1ba-7732-4cbf-9dc7-68f6e6200e38)
+
+Execute 클릭
+
+![image](https://github.com/user-attachments/assets/5bf7cbaf-b8a9-4f1f-a36e-a8370c11c756)
+
+password에다가 비밀번호 입력 후에 next
 
 
-🎯 우리가 만드는 구조: 웹앱 풀스택
+
+
+## 🎯 우리가 만드는 구조: 웹앱 풀스택
 
 [프론트엔드(Web App)]  ←→  [백엔드(Node.js, Express, Socket.IO)]  ←→  [MySQL]
         ↑ (React 등)                 ↑ (API + 실시간)                  ↑ (DB)
