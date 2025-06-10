@@ -82,32 +82,30 @@ npm init -y
 ![image](https://github.com/user-attachments/assets/620a7883-d43a-4eff-ac2e-efc5178bd115)
 
 ---
-# DongStory 스키마 요약표
-
-| 테이블명            | 주요 컬럼/기능                                                      |
-|---------------------|---------------------------------------------------------------------|
-| user                | id, username, password, name, nickname, profile_img, email, ...     |
-| follow              | follower_id, following_id, created_at                               |
-| community           | id, name, description, admin_id, is_private, created_at             |
-| post                | id, user_id, community_id, title, content, is_anonymous, ...        |
-| post_file           | id, post_id, file_url, file_type, is_thumbnail, uploaded_at          |
-| tag                 | id, name                                                            |
-| post_tag            | post_id, tag_id                                                     |
-| comment             | id, post_id, user_id, content, parent_id, is_anonymous, ...         |
-| post_like           | id, post_id, user_id, created_at                                    |
-| comment_like        | id, comment_id, user_id, created_at                                 |
-| emoji               | id, name                                                            |
-| post_reaction       | post_id, user_id, emoji_id, created_at                              |
-| chat_room           | id, name, is_group, created_at                                      |
-| chat_room_user      | id, chatroom_id, user_id, left_at                                   |
-| chat_message        | id, chatroom_id, sender_id, message, file_url, is_deleted, ...      |
-| notification        | id, user_id, type, message, is_read, source_user_id, ...            |
-| report              | id, reporter_id, target_type, target_id, reason, created_at         |
-| user_block          | id, user_id, blocked_user_id, created_at                            |
-| profile_visit       | id, visitor_id, profile_user_id, visited_at                         |
-| search_history      | id, user_id, keyword, searched_at                                   |
-| feed_cache          | id, user_id, post_id, score, created_at                             |
-| file_report         | id, file_id, reporter_id, reason, created_at                        |
+| 테이블명            | 주요 컬럼/기능                                                      | 설명(한국어)      |
+|---------------------|---------------------------------------------------------------------|------------------|
+| user                | id, username, password, name, nickname, profile_img, email, ...     | 유저(회원)         |
+| follow              | follower_id, following_id, created_at                               | 팔로우/친구관계      |
+| community           | id, name, description, admin_id, is_private, created_at             | 커뮤니티/게시판      |
+| post                | id, user_id, community_id, title, content, is_anonymous, ...        | 게시글/피드         |
+| post_file           | id, post_id, file_url, file_type, is_thumbnail, uploaded_at          | 게시글 첨부파일      |
+| tag                 | id, name                                                            | 태그/해시태그       |
+| post_tag            | post_id, tag_id                                                     | 게시글-태그 연결     |
+| comment             | id, post_id, user_id, content, parent_id, is_anonymous, ...         | 댓글/대댓글         |
+| post_like           | id, post_id, user_id, created_at                                    | 게시글 좋아요        |
+| comment_like        | id, comment_id, user_id, created_at                                 | 댓글 좋아요         |
+| emoji               | id, name                                                            | 이모지/리액션       |
+| post_reaction       | post_id, user_id, emoji_id, created_at                              | 게시글 이모지반응    |
+| chat_room           | id, name, is_group, created_at                                      | 채팅방             |
+| chat_room_user      | id, chatroom_id, user_id, left_at                                   | 채팅방 참여자        |
+| chat_message        | id, chatroom_id, sender_id, message, file_url, is_deleted, ...      | 채팅 메시지         |
+| notification        | id, user_id, type, message, is_read, source_user_id, ...            | 알림/노티피케이션    |
+| report              | id, reporter_id, target_type, target_id, reason, created_at         | 신고               |
+| user_block          | id, user_id, blocked_user_id, created_at                            | 유저 차단           |
+| profile_visit       | id, visitor_id, profile_user_id, visited_at                         | 프로필 방문기록      |
+| search_history      | id, user_id, keyword, searched_at                                   | 검색 기록           |
+| feed_cache          | id, user_id, post_id, score, created_at                             | 피드 추천/캐시       |
+| file_report         | id, file_id, reporter_id, reason, created_at                        | 파일/이미지 신고     |
 
 
 
