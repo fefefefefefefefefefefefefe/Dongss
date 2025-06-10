@@ -63,7 +63,7 @@ npm init -y
 | **pip installs**  |  설명 |
 |--------------|----------|
 |  npm install bcryptjs jsonwebtoken |  회원가입 & 로그인 기능  |
-|  npm install nodemailer            |  이메일 인증메일 전송 기능   |  // Gmail SMTP.md() 로 가기.
+|  npm install nodemailer            |  이메일 인증메일 전송 기능   |  // [Gmail SMTP.md로 가서 설치하는법 보기.](database_setting/Gmail_SMTP.md)
 
 
 
