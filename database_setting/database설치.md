@@ -81,8 +81,32 @@ npm init -y
 
 ---
 
+### DataBase 최종 테이블/기능 설명 
 
-
+| 테이블명                 | 주요 컬럼/기능                                                                                                                                                                | 설명                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| **user**             | id, username, password, name, nickname, profile\_img, bio, email, gender, email\_verified, status, website, location, birthday, oauth\_provider, oauth\_id, created\_at | 회원의 기본 정보와 프로필, 상태, 외부 로그인 정보 등               |
+| **follow**           | follower\_id, following\_id, created\_at                                                                                                                                | 팔로우(친구) 관계 정보. 팔로워-팔로잉 관계                     |
+| **community**        | id, name, description, admin\_id, is\_private, created\_at                                                                                                              | 커뮤니티(게시판) 정보. 이름/설명/관리자/공개 여부 등               |
+| **post**             | id, user\_id, community\_id, title, content, is\_anonymous, visibility, view\_count, comment\_count, is\_blinded, is\_deleted, created\_at, updated\_at                 | 게시글(작성자/커뮤니티/제목/내용/익명/공개범위/조회수/블라인드/삭제/수정일 등) |
+| **post\_file**       | id, post\_id, file\_url, file\_type, is\_thumbnail, uploaded\_at                                                                                                        | 게시글 첨부파일/이미지(대표 이미지 포함, 여러 파일 가능)             |
+| **tag**              | id, name                                                                                                                                                                | 태그 목록(예: #질문, #후기 등)                          |
+| **post\_tag**        | post\_id, tag\_id                                                                                                                                                       | 게시글별 태그 연결(한 게시글에 여러 태그 가능)                   |
+| **comment**          | id, post\_id, user\_id, content, parent\_id, is\_anonymous, is\_blinded, is\_deleted, created\_at, updated\_at                                                          | 댓글 및 대댓글(작성자, 상위댓글, 익명/블라인드/삭제/수정 등)          |
+| **post\_like**       | id, post\_id, user\_id, created\_at, unique\_post\_like                                                                                                                 | 게시글 좋아요(누가 어느 글을 좋아했는지)                       |
+| **comment\_like**    | id, comment\_id, user\_id, created\_at, unique\_comment\_like                                                                                                           | 댓글 좋아요(누가 어느 댓글을 좋아했는지)                       |
+| **emoji**            | id, name                                                                                                                                                                | 이모지(리액션) 목록(#좋아요, #웃음 등)                      |
+| **post\_reaction**   | post\_id, user\_id, emoji\_id, created\_at, PRIMARY KEY(post\_id, user\_id, emoji\_id)                                                                                  | 게시글별 다양한 이모지(리액션) 반응 정보                       |
+| **chat\_room**       | id, name, is\_group, created\_at                                                                                                                                        | 채팅방 정보(이름, 그룹 여부 등)                           |
+| **chat\_room\_user** | id, chatroom\_id, user\_id, left\_at                                                                                                                                    | 채팅방 참여자 정보(나간 시점 포함)                          |
+| **chat\_message**    | id, chatroom\_id, sender\_id, message, file\_url, is\_deleted, created\_at                                                                                              | 채팅 메시지(내용/파일/삭제 등)                            |
+| **notification**     | id, user\_id, type, message, is\_read, source\_user\_id, related\_post\_id, related\_comment\_id, chat\_message\_id, chat\_room\_id, created\_at                        | 알림(댓글/좋아요/채팅/팔로우 등, 읽음 여부, 관련 활동 정보 포함)       |
+| **report**           | id, reporter\_id, target\_type, target\_id, reason, created\_at                                                                                                         | 신고(누가, 무엇을, 왜 신고했는지)                          |
+| **user\_block**      | id, user\_id, blocked\_user\_id, created\_at, unique\_block                                                                                                             | 차단(누가, 누구를 차단했는지)                             |
+| **profile\_visit**   | id, visitor\_id, profile\_user\_id, visited\_at                                                                                                                         | 프로필 방문 기록(누가, 누구 프로필을, 언제 방문)                 |
+| **search\_history**  | id, user\_id, keyword, searched\_at                                                                                                                                     | 사용자별 검색 기록(검색 키워드, 시각 등)                      |
+| **feed\_cache**      | id, user\_id, post\_id, score, created\_at                                                                                                                              | 추천 피드/포스트 캐시(추천 점수 기반, 맞춤 피드 등에 활용)           |
+| **file\_report**     | id, file\_id, reporter\_id, reason, created\_at                                                                                                                         | 게시글 첨부파일 신고(악성 이미지, 파일 등 대응)                  |
 
 
 
