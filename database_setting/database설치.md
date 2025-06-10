@@ -172,125 +172,113 @@ USE sns_db;
 -- 0. 필수: 문자 인코딩(utf8mb4) 세팅 (선택)
 SET NAMES utf8mb4;
 
--- 1. 사용자(공통)
+-- 문자 인코딩 설정(선택)
+SET NAMES utf8mb4;
+
+-- 1. 회원(프로필, 자기소개, 상태 등 포함)
 CREATE TABLE user (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(50) NOT NULL,
-    nickname VARCHAR(50),
-    gender VARCHAR(10),
-    email VARCHAR(100) UNIQUE NOT NULL,
-    bio TEXT,
+    nickname VARCHAR(50) UNIQUE,
     profile_img VARCHAR(255),
-    role ENUM('admin', 'student', 'professor', 'ta') NOT NULL,
+    bio TEXT,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    gender VARCHAR(10),
+    email_verified BOOLEAN DEFAULT FALSE,
+    status ENUM('active', 'suspended', 'deleted') DEFAULT 'active',
+    website VARCHAR(255),
+    location VARCHAR(100),
+    birthday DATE,
+    oauth_provider VARCHAR(50),
+    oauth_id VARCHAR(100),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. 학생 추가 정보
-CREATE TABLE student_info (
-    user_id INT PRIMARY KEY,
-    student_number VARCHAR(20) NOT NULL UNIQUE,
-    department VARCHAR(100),
-    grade INT, -- 학년
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+-- 2. 팔로우(친구) 관계
+CREATE TABLE follow (
+    follower_id INT NOT NULL,
+    following_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (follower_id, following_id),
+    FOREIGN KEY (follower_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (following_id) REFERENCES user(id) ON DELETE CASCADE
 );
 
--- 3. 교수 추가 정보
-CREATE TABLE professor_info (
-    user_id INT PRIMARY KEY,
-    office VARCHAR(50),
-    department VARCHAR(100),
-    major VARCHAR(100),
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+-- 3. 커뮤니티(게시판)
+CREATE TABLE community (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(255),
+    admin_id INT,
+    is_private BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES user(id)
 );
 
--- 4. 조교 추가 정보
-CREATE TABLE ta_info (
-    user_id INT PRIMARY KEY,
-    department VARCHAR(100),
-    assigned_professor_id INT,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY (assigned_professor_id) REFERENCES user(id)
-);
-
--- 5. 게시글
+-- 4. 게시글
 CREATE TABLE post (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    category VARCHAR(30),
+    community_id INT NOT NULL,
     title VARCHAR(100),
     content TEXT,
-    image_url VARCHAR(255),
+    is_anonymous BOOLEAN DEFAULT FALSE,
+    visibility ENUM('public', 'followers', 'private') DEFAULT 'public',
+    view_count INT DEFAULT 0,
+    comment_count INT DEFAULT 0,
+    is_blinded BOOLEAN DEFAULT FALSE,
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+    updated_at DATETIME DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE CASCADE
 );
 
--- 6. 댓글
+-- 5. 첨부파일(게시글)
+CREATE TABLE post_file (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    post_id INT NOT NULL,
+    file_url VARCHAR(255),
+    file_type VARCHAR(30),
+    is_thumbnail BOOLEAN DEFAULT FALSE,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
+);
+
+-- 6. 태그/해시태그
+CREATE TABLE tag (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE post_tag (
+    post_id INT NOT NULL,
+    tag_id INT NOT NULL,
+    PRIMARY KEY(post_id, tag_id),
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+);
+
+-- 7. 댓글/대댓글
 CREATE TABLE comment (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
     user_id INT NOT NULL,
     content TEXT,
-    parent_id INT NULL,  -- 대댓글 구조 (없으면 NULL)
+    parent_id INT NULL,
+    is_anonymous BOOLEAN DEFAULT FALSE,
+    is_blinded BOOLEAN DEFAULT FALSE,
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT NULL,
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES comment(id) ON DELETE CASCADE
 );
 
--- 7. 공지사항
-CREATE TABLE notice (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    admin_id INT NOT NULL,
-    title VARCHAR(100),
-    content TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (admin_id) REFERENCES user(id) ON DELETE CASCADE
-);
-
--- 8. 채팅방
-CREATE TABLE chat_room (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100),
-    is_group BOOLEAN,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 9. 채팅방-유저 매핑
-CREATE TABLE chat_room_user (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    chatroom_id INT NOT NULL,
-    user_id INT NOT NULL,
-    FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-);
-
--- 10. 채팅 메시지
-CREATE TABLE chat_message (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    chatroom_id INT NOT NULL,
-    sender_id INT NOT NULL,
-    message TEXT,
-    file_url VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
-    FOREIGN KEY (sender_id) REFERENCES user(id) ON DELETE CASCADE
-);
-
--- 11. 알림(Notification)
-CREATE TABLE notification (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    type VARCHAR(30),
-    message VARCHAR(255),
-    url VARCHAR(255),
-    is_read BOOLEAN DEFAULT FALSE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
-);
-
--- 12. 게시글 좋아요
+-- 8. 좋아요/공감 (게시글/댓글)
 CREATE TABLE post_like (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
@@ -301,18 +289,93 @@ CREATE TABLE post_like (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
 
--- 13. 신고(Report)
+CREATE TABLE comment_like (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    comment_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_comment_like (comment_id, user_id),
+    FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+-- 9. 이모지/리액션 (게시글/댓글 확장용)
+CREATE TABLE emoji (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE post_reaction (
+    post_id INT NOT NULL,
+    user_id INT NOT NULL,
+    emoji_id INT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (post_id, user_id, emoji_id),
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (emoji_id) REFERENCES emoji(id) ON DELETE CASCADE
+);
+
+-- 10. 알림 (모든 활동/채팅 알림 통합)
+CREATE TABLE chat_room (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    is_group BOOLEAN,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE chat_message (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chatroom_id INT NOT NULL,
+    sender_id INT NOT NULL,
+    message TEXT,
+    file_url VARCHAR(255),
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+CREATE TABLE notification (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,               -- 알림 받는 유저
+    type VARCHAR(30),                   -- 알림 종류 (chat_message, comment, like 등)
+    message VARCHAR(255),               -- 알림 내용
+    is_read BOOLEAN DEFAULT FALSE,
+    source_user_id INT NULL,            -- 알림 발생자
+    related_post_id INT NULL,           -- 관련 게시글
+    related_comment_id INT NULL,        -- 관련 댓글
+    chat_message_id INT NULL,           -- 관련 채팅 메시지
+    chat_room_id INT NULL,              -- 관련 채팅방
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_user_id) REFERENCES user(id) ON DELETE SET NULL,
+    FOREIGN KEY (related_post_id) REFERENCES post(id) ON DELETE SET NULL,
+    FOREIGN KEY (related_comment_id) REFERENCES comment(id) ON DELETE SET NULL,
+    FOREIGN KEY (chat_message_id) REFERENCES chat_message(id) ON DELETE SET NULL,
+    FOREIGN KEY (chat_room_id) REFERENCES chat_room(id) ON DELETE SET NULL
+);
+
+CREATE TABLE chat_room_user (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    chatroom_id INT NOT NULL,
+    user_id INT NOT NULL,
+    left_at DATETIME DEFAULT NULL,
+    FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+-- 11. 신고/차단
 CREATE TABLE report (
     id INT AUTO_INCREMENT PRIMARY KEY,
     reporter_id INT NOT NULL,
-    target_type VARCHAR(30), -- 'post', 'comment', 'user'
+    target_type VARCHAR(30),
     target_id INT NOT NULL,
     reason VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reporter_id) REFERENCES user(id) ON DELETE CASCADE
 );
 
--- 14. 유저 차단
 CREATE TABLE user_block (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -322,6 +385,48 @@ CREATE TABLE user_block (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (blocked_user_id) REFERENCES user(id) ON DELETE CASCADE
 );
+
+-- 12. 추가 기능: 프로필 방문 기록
+CREATE TABLE profile_visit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    visitor_id INT NOT NULL,
+    profile_user_id INT NOT NULL,
+    visited_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (visitor_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (profile_user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+-- 13. 추가 기능: 검색 기록
+CREATE TABLE search_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    keyword VARCHAR(100),
+    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+-- 14. 추가 기능: 피드 추천/순위 로그
+CREATE TABLE feed_cache (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    post_id INT NOT NULL,
+    score FLOAT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
+);
+
+-- 15. 추가 기능: 파일/이미지 신고 관리
+CREATE TABLE file_report (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    file_id INT NOT NULL,
+    reporter_id INT NOT NULL,
+    reason VARCHAR(255),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (file_id) REFERENCES post_file(id) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
 **3. 생성된 테이블에 더미데이터 추가.**
 
 
