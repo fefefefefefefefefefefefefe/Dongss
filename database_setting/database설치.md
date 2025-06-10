@@ -63,7 +63,7 @@ npm init -y
 | **pip installs**  |  설명 |
 |--------------|----------|
 |  npm install bcryptjs jsonwebtoken |  회원가입 & 로그인 기능  |
-|                                    |          |
+|  npm install nodemailer            |  이메일 인증메일 전송 기능   |  // Gmail SMTP.md() 로 가기.
 
 
 
@@ -337,8 +337,6 @@ CREATE TABLE post_like (
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
----
 
 CREATE TABLE comment_like (
     id INT AUTO_INCREMENT PRIMARY KEY,
