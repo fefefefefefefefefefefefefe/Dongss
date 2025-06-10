@@ -172,6 +172,7 @@ USE sns_db;
 -- 0. 필수: 문자 인코딩(utf8mb4) 세팅 (선택)
 SET NAMES utf8mb4;
 
+---
 
 -- 1. 테이블 수정 
 
@@ -182,9 +183,10 @@ SET NAMES utf8mb4;
 외래키 제약 끄기
    - SET FOREIGN_KEY_CHECKS = 0;
 
-   
 
  : 외래키가 되어있으면 함부로 테이블을 삭제할 수 없기 때문에 해놓았다.
+
+---
  
 -- 문자 인코딩 설정(선택)
 SET NAMES utf8mb4;
