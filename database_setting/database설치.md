@@ -3,8 +3,10 @@
 1. Nodejs 설치
    
    URL : https://nodejs.org/ko
+   
+---
 
-3. mySQL 설치
+2. mySQL 설치
    
    URL : https://dev.mysql.com/downloads/installer/
    
@@ -138,6 +140,7 @@ npm init -y
 | **feed\_cache**      | id, user\_id, post\_id, score, created\_at                                                                                                                              | 추천 피드/포스트 캐시(추천 점수 기반, 맞춤 피드 등에 활용)           |
 | **file\_report**     | id, file\_id, reporter\_id, reason, created\_at                                                                                                                         | 게시글 첨부파일 신고(악성 이미지, 파일 등 대응)                  |
 
+---
 
 
 
@@ -156,8 +159,7 @@ npm init -y
 
 
 
-
-
+---
 ### DataBase 명령어.
 
 
@@ -178,7 +180,7 @@ SET NAMES utf8mb4;
 
 
 외래키 제약 끄기
-   SET FOREIGN_KEY_CHECKS = 0;
+   - SET FOREIGN_KEY_CHECKS = 0;
 
    
 
@@ -188,28 +190,48 @@ SET NAMES utf8mb4;
 SET NAMES utf8mb4;
 
 -- 1. 회원(프로필, 자기소개, 상태 등 포함)
+
+-- 기본 로그인/식별 정보만
 CREATE TABLE user (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    name VARCHAR(50) NOT NULL,
-    nickname VARCHAR(50) UNIQUE,
-    profile_img VARCHAR(255),
-    bio TEXT,
     email VARCHAR(100) UNIQUE NOT NULL,
-    gender VARCHAR(10),
-    email_verified BOOLEAN DEFAULT FALSE,
+    nickname VARCHAR(50) UNIQUE,
     status ENUM('active', 'inactive', 'suspended', 'deleted') DEFAULT 'active',
-    website VARCHAR(255),
-    location VARCHAR(100),
-    birthday DATE,
-    oauth_provider VARCHAR(50),
-    oauth_id VARCHAR(100),
-    last_login_at DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 확장 프로필
+CREATE TABLE user_profile (
+    user_id INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    profile_img VARCHAR(255),
+    bio TEXT,
+    gender VARCHAR(10),
+    website VARCHAR(255),
+    location VARCHAR(100),
+    birthday DATE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
 
+-- 소셜(OAuth) 연동
+CREATE TABLE user_oauth (
+    user_id INT PRIMARY KEY,
+    oauth_provider VARCHAR(50),
+    oauth_id VARCHAR(100),
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+-- 인증/보안
+CREATE TABLE user_security (
+    user_id INT PRIMARY KEY,
+    email_verified BOOLEAN DEFAULT FALSE,
+    last_login_at DATETIME DEFAULT NULL,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
+---
 
 -- 2. 팔로우(친구) 관계
 CREATE TABLE follow (
@@ -220,7 +242,7 @@ CREATE TABLE follow (
     FOREIGN KEY (follower_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (following_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 3. 커뮤니티(게시판)
 CREATE TABLE community (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -231,7 +253,7 @@ CREATE TABLE community (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (admin_id) REFERENCES user(id)
 );
-
+---
 -- 4. 게시글
 CREATE TABLE post (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -250,7 +272,7 @@ CREATE TABLE post (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE CASCADE
 );
-
+---
 -- 5. 첨부파일(게시글)
 CREATE TABLE post_file (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -261,13 +283,13 @@ CREATE TABLE post_file (
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
 );
-
+---
 -- 6. 태그/해시태그
 CREATE TABLE tag (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL
 );
-
+---
 CREATE TABLE post_tag (
     post_id INT NOT NULL,
     tag_id INT NOT NULL,
@@ -275,7 +297,7 @@ CREATE TABLE post_tag (
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
 );
-
+---
 -- 7. 댓글/대댓글
 CREATE TABLE comment (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -292,7 +314,7 @@ CREATE TABLE comment (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES comment(id) ON DELETE CASCADE
 );
-
+---
 -- 8. 좋아요/공감 (게시글/댓글)
 CREATE TABLE post_like (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -303,7 +325,7 @@ CREATE TABLE post_like (
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 CREATE TABLE comment_like (
     id INT AUTO_INCREMENT PRIMARY KEY,
     comment_id INT NOT NULL,
@@ -313,7 +335,7 @@ CREATE TABLE comment_like (
     FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 9. 이모지/리액션 (게시글/댓글 확장용)
 CREATE TABLE emoji (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -330,7 +352,7 @@ CREATE TABLE post_reaction (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (emoji_id) REFERENCES emoji(id) ON DELETE CASCADE
 );
-
+---
 -- 10. 알림 (모든 활동/채팅 알림 통합)
 CREATE TABLE chat_room (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -379,7 +401,7 @@ CREATE TABLE chat_room_user (
     FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 11. 신고/차단
 CREATE TABLE report (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -400,7 +422,7 @@ CREATE TABLE user_block (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (blocked_user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 12. 추가 기능: 프로필 방문 기록
 CREATE TABLE profile_visit (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -410,7 +432,7 @@ CREATE TABLE profile_visit (
     FOREIGN KEY (visitor_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (profile_user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 13. 추가 기능: 검색 기록
 CREATE TABLE search_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -419,7 +441,7 @@ CREATE TABLE search_history (
     searched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
 );
-
+---
 -- 14. 추가 기능: 피드 추천/순위 로그
 CREATE TABLE feed_cache (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -430,7 +452,7 @@ CREATE TABLE feed_cache (
     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
     FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
 );
-
+---
 -- 15. 추가 기능: 파일/이미지 신고 관리
 CREATE TABLE file_report (
     id INT AUTO_INCREMENT PRIMARY KEY,
