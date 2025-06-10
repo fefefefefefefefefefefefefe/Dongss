@@ -170,6 +170,20 @@ USE sns_db;
 -- 0. 필수: 문자 인코딩(utf8mb4) 세팅 (선택)
 SET NAMES utf8mb4;
 
+
+-- 1. 테이블 수정 
+
+외래키 제약 켜기
+   - SET FOREIGN_KEY_CHECKS = 1;
+
+
+외래키 제약 끄기
+   SET FOREIGN_KEY_CHECKS = 0;
+
+   
+
+ : 외래키가 되어있으면 함부로 테이블을 삭제할 수 없기 때문에 해놓았다.
+ 
 -- 문자 인코딩 설정(선택)
 SET NAMES utf8mb4;
 
@@ -185,14 +199,17 @@ CREATE TABLE user (
     email VARCHAR(100) UNIQUE NOT NULL,
     gender VARCHAR(10),
     email_verified BOOLEAN DEFAULT FALSE,
-    status ENUM('active', 'suspended', 'deleted') DEFAULT 'active',
+    status ENUM('active', 'inactive', 'suspended', 'deleted') DEFAULT 'active',
     website VARCHAR(255),
     location VARCHAR(100),
     birthday DATE,
     oauth_provider VARCHAR(50),
     oauth_id VARCHAR(100),
+    last_login_at DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+
 
 -- 2. 팔로우(친구) 관계
 CREATE TABLE follow (
