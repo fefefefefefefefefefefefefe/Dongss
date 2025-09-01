@@ -305,3 +305,21 @@ CREATE TABLE file_report (
   FOREIGN KEY (file_id) REFERENCES post_file(id) ON DELETE CASCADE,
   FOREIGN KEY (reporter_id) REFERENCES user(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+
+# 1) 압축 해제 후 폴더로 이동
+cd dongstory-backend
+
+# 2) 의존성 설치
+npm install
+
+# 3) 환경변수 설정
+cp .env.example .env
+# .env에서 DB_USER/DB_PASS/JWT_SECRET 채우기
+# (DB는 우리가 방금 만든 dongstory, 유저 dongstory@localhost 권한 OK)
+
+# 4) 서버 실행 (개발 모드)
+npm run dev
+# 또는
+npm start
+
