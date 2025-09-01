@@ -1,0 +1,307 @@
+MYSQL create_dongstory.sql
+
+
+-- ===== 0) 위험! 전부 삭제 =====
+SET FOREIGN_KEY_CHECKS = 0;
+DROP DATABASE IF EXISTS dongstory;
+DROP USER IF EXISTS 'dongstory'@'localhost';
+SET FOREIGN_KEY_CHECKS = 1;
+FLUSH PRIVILEGES;
+
+-- ===== 1) DB/계정 재생성 =====
+CREATE DATABASE dongstory
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'dongstory'@'localhost' IDENTIFIED BY '강력한비밀번호여기에';
+GRANT ALL PRIVILEGES ON dongstory.* TO 'dongstory'@'localhost';
+FLUSH PRIVILEGES;
+USE dongstory;
+
+-- ===== 2) 스키마 생성 (MySQL 8.x 기준) =====
+
+-- user
+CREATE TABLE user (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username      VARCHAR(30) NOT NULL UNIQUE,
+  password      VARCHAR(255) NOT NULL,
+  name          VARCHAR(50) NOT NULL,
+  nickname      VARCHAR(30) UNIQUE,
+  profile_img   VARCHAR(512),
+  bio           VARCHAR(200),
+  email         VARCHAR(120) UNIQUE,
+  gender        ENUM('male','female','other','unknown') DEFAULT 'unknown',
+  email_verified TINYINT(1) NOT NULL DEFAULT 0,
+  status        ENUM('active','suspended','deleted') NOT NULL DEFAULT 'active',
+  website       VARCHAR(255),
+  location      VARCHAR(100),
+  birthday      DATE,
+  oauth_provider ENUM('google','kakao','naver','github','none') DEFAULT 'none',
+  oauth_id      VARCHAR(191),
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at    DATETIME NULL,
+  UNIQUE KEY uq_oauth (oauth_provider, oauth_id)
+) ENGINE=InnoDB;
+
+-- follow
+CREATE TABLE follow (
+  follower_id BIGINT UNSIGNED NOT NULL,
+  following_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (follower_id, following_id),
+  CONSTRAINT fk_follow_follower FOREIGN KEY (follower_id) REFERENCES user(id) ON DELETE CASCADE,
+  CONSTRAINT fk_follow_following FOREIGN KEY (following_id) REFERENCES user(id) ON DELETE CASCADE,
+  CONSTRAINT chk_follow_self CHECK (follower_id <> following_id)
+) ENGINE=InnoDB;
+
+-- community
+CREATE TABLE community (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(80) NOT NULL UNIQUE,
+  description TEXT,
+  is_private  TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- community_member
+CREATE TABLE community_member (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  community_id  BIGINT UNSIGNED NOT NULL,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  role          ENUM('owner','admin','moderator','member') NOT NULL DEFAULT 'member',
+  joined_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  muted_until   DATETIME NULL,
+  UNIQUE KEY uq_comm_member (community_id, user_id),
+  FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- post
+CREATE TABLE post (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id       BIGINT UNSIGNED NOT NULL,
+  community_id  BIGINT UNSIGNED NULL,
+  title         VARCHAR(200),
+  content       MEDIUMTEXT,
+  is_anonymous  TINYINT(1) NOT NULL DEFAULT 0,
+  visibility    ENUM('public','community','followers','private') NOT NULL DEFAULT 'public',
+  view_count    INT UNSIGNED NOT NULL DEFAULT 0,
+  comment_count INT UNSIGNED NOT NULL DEFAULT 0,
+  is_blinded    TINYINT(1) NOT NULL DEFAULT 0,
+  is_deleted    TINYINT(1) NOT NULL DEFAULT 0,
+  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at    DATETIME NULL,
+  INDEX idx_post_user (user_id, created_at),
+  INDEX idx_post_comm (community_id, created_at),
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- post_file
+CREATE TABLE post_file (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  post_id     BIGINT UNSIGNED NOT NULL,
+  file_url    VARCHAR(512) NOT NULL,
+  file_type   ENUM('image','video','file') NOT NULL,
+  is_thumbnail TINYINT(1) NOT NULL DEFAULT 0,
+  uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pf_post (post_id),
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- tag / post_tag
+CREATE TABLE tag (
+  id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE post_tag (
+  post_id BIGINT UNSIGNED NOT NULL,
+  tag_id  BIGINT UNSIGNED NOT NULL,
+  PRIMARY KEY (post_id, tag_id),
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- comment
+CREATE TABLE comment (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  post_id      BIGINT UNSIGNED NOT NULL,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  content      TEXT,
+  parent_id    BIGINT UNSIGNED NULL,
+  is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+  is_blinded   TINYINT(1) NOT NULL DEFAULT 0,
+  is_deleted   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at   DATETIME NULL,
+  INDEX idx_c_post (post_id, created_at),
+  INDEX idx_c_parent (parent_id),
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_id) REFERENCES comment(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 좋아요
+CREATE TABLE post_like (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  post_id    BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_post_like (post_id, user_id),
+  INDEX idx_pl_user (user_id, created_at),
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE comment_like (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  comment_id BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_comment_like (comment_id, user_id),
+  INDEX idx_cl_user (user_id, created_at),
+  FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 이모지/리액션
+CREATE TABLE emoji (
+  id   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(40) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE post_reaction (
+  post_id  BIGINT UNSIGNED NOT NULL,
+  user_id  BIGINT UNSIGNED NOT NULL,
+  emoji_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id, user_id, emoji_id),
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (emoji_id) REFERENCES emoji(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+-- 채팅
+CREATE TABLE chat_room (
+  id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name      VARCHAR(100),
+  is_group  TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE chat_room_user (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id  BIGINT UNSIGNED NOT NULL,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  joined_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  left_at      DATETIME NULL,
+  UNIQUE KEY uq_chat_member (chatroom_id, user_id),
+  FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE chat_message (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id  BIGINT UNSIGNED NOT NULL,
+  sender_id    BIGINT UNSIGNED NOT NULL,
+  message      TEXT,
+  file_url     VARCHAR(512),
+  is_deleted   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_cm_room (chatroom_id, created_at),
+  FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE,
+  FOREIGN KEY (sender_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 알림
+CREATE TABLE notification (
+  id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id          BIGINT UNSIGNED NOT NULL,    -- 수신자
+  type             ENUM('follow','post_like','comment','comment_like','mention','chat','system') NOT NULL,
+  message          VARCHAR(255),
+  is_read          TINYINT(1) NOT NULL DEFAULT 0,
+  source_user_id   BIGINT UNSIGNED NULL,
+  related_post_id  BIGINT UNSIGNED NULL,
+  related_comment_id BIGINT UNSIGNED NULL,
+  chat_message_id  BIGINT UNSIGNED NULL,
+  chat_room_id     BIGINT UNSIGNED NULL,
+  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_n_user (user_id, is_read, created_at),
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (source_user_id) REFERENCES user(id) ON DELETE SET NULL,
+  FOREIGN KEY (related_post_id) REFERENCES post(id) ON DELETE SET NULL,
+  FOREIGN KEY (related_comment_id) REFERENCES comment(id) ON DELETE SET NULL,
+  FOREIGN KEY (chat_message_id) REFERENCES chat_message(id) ON DELETE SET NULL,
+  FOREIGN KEY (chat_room_id) REFERENCES chat_room(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- 신고
+CREATE TABLE report (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  reporter_id  BIGINT UNSIGNED NOT NULL,
+  target_type  ENUM('post','comment','user','file') NOT NULL,
+  target_id    BIGINT UNSIGNED NOT NULL,
+  reason       VARCHAR(255),
+  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_report_target (target_type, target_id, created_at),
+  FOREIGN KEY (reporter_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 차단
+CREATE TABLE user_block (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id        BIGINT UNSIGNED NOT NULL,
+  blocked_user_id BIGINT UNSIGNED NOT NULL,
+  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_block (user_id, blocked_user_id),
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (blocked_user_id) REFERENCES user(id) ON DELETE CASCADE,
+  CONSTRAINT chk_block_self CHECK (user_id <> blocked_user_id)
+) ENGINE=InnoDB;
+
+-- 로그성
+CREATE TABLE profile_visit (
+  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  visitor_id      BIGINT UNSIGNED NOT NULL,
+  profile_user_id BIGINT UNSIGNED NOT NULL,
+  visited_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_visit_profile (profile_user_id, visited_at),
+  FOREIGN KEY (visitor_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (profile_user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE search_history (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  keyword    VARCHAR(120) NOT NULL,
+  searched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_sh_user (user_id, searched_at),
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 추천 캐시
+CREATE TABLE feed_cache (
+  id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id   BIGINT UNSIGNED NOT NULL,
+  post_id   BIGINT UNSIGNED NOT NULL,
+  score     DOUBLE NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_feed_cache (user_id, post_id),
+  INDEX idx_feed_user (user_id, score DESC, created_at),
+  FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+  FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 파일 신고
+CREATE TABLE file_report (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  file_id     BIGINT UNSIGNED NOT NULL,  -- post_file.id
+  reporter_id BIGINT UNSIGNED NOT NULL,
+  reason      VARCHAR(255),
+  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_file_report (file_id, created_at),
+  FOREIGN KEY (file_id) REFERENCES post_file(id) ON DELETE CASCADE,
+  FOREIGN KEY (reporter_id) REFERENCES user(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
