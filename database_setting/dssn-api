@@ -1,4 +1,5 @@
 DSSN-API 셋업 로그 & 트러블슈팅 메모
+---
 0) 환경
 
 Windows 10
@@ -9,13 +10,15 @@ MySQL 8.0 (Workbench 설치)
 
 프로젝트 폴더: C:\Users\In-Jae\dssn-api
 
+---
+
 1) DB 준비 (정상 동작 확인까지)
 1-1. Workbench에서 테이블 생성
 
 스키마: dongstory
 
 Workbench 좌측 SCHEMAS에 dongstory와 테이블들이 보임 → 서버 실행/연결 OK.
-
+---
 1-2. (실수) CMD에서 mysql이 “내부/외부 명령이 아닙니다”
 
 증상:
@@ -26,7 +29,7 @@ Workbench 좌측 SCHEMAS에 dongstory와 테이블들이 보임 → 서버 실�
 원인: mysql.exe 경로가 PATH에 없음.
 
 해결:
-
+---
 C:\Program Files\MySQL\MySQL Server 8.0\bin 확인
 
 시스템 환경 변수 → Path → 위 경로 추가 → 새 CMD 열기
@@ -34,14 +37,14 @@ C:\Program Files\MySQL\MySQL Server 8.0\bin 확인
 또는 전체 경로로 실행:
 
 "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p -h 127.0.0.1 -P 3306
-
+---
 1-3. MySQL 접속/기본 쿼리
 SHOW DATABASES;
 USE dongstory;
 SHOW TABLES;
 SELECT NOW();
 EXIT;
-
+---
 1-4. (실수) netstat를 MySQL 모니터 안에서 실행함
 
 증상: mysql> 프롬프트에서 netstat -ano | findstr 3306 입력 → 줄 맨 앞에 ->만 늘어남.
@@ -51,6 +54,7 @@ EXIT;
 해결: exit로 나가서 CMD에서 실행:
 
 netstat -ano | findstr 3306
+---
 
 2) Node + Prisma 프로젝트 생성
 2-1. 프로젝트 초기화
@@ -58,7 +62,7 @@ mkdir dssn-api && cd dssn-api
 npm init -y
 npm i express @prisma/client dotenv
 npm i -D prisma nodemon
-
+---
 2-2. package.json(E.SM, 스크립트)
 {
   "name": "dssn-api",
@@ -82,7 +86,7 @@ npm i -D prisma nodemon
     "nodemon": "^3.1.0"
   }
 }
-
+---
 2-3. Prisma 초기화 + DB 연결
 npx prisma init --datasource-provider mysql
 
@@ -103,7 +107,7 @@ datasource db {
   url      = env("DATABASE_URL")
   // relationMode = "prisma"  // FK 없이 관계 쓰고 싶을 때만 켬
 }
-
+---
 2-4. DB 스키마 끌어오기 + 클라이언트 생성
 npx prisma db pull
 npx prisma generate
@@ -116,7 +120,7 @@ npx prisma generate
 
 해결(추천): schema.prisma에서 output 제거 → 다시 npx prisma generate
 (대안: import { PrismaClient } from '../../generated/prisma/index.js'로 경로를 바꿔도 되지만 권장 X)
-
+---
 3) 코드 뼈대 + 헬스체크
 3-1. 폴더
 dssn-api/
@@ -126,11 +130,11 @@ dssn-api/
  │   └─ index.js
  ├─ .env
  └─ package.json
-
+---
 3-2. src/lib/prisma.js
 import { PrismaClient } from '@prisma/client';
 export const prisma = new PrismaClient();
-
+---
 3-3. src/index.js
 import express from 'express';
 import 'dotenv/config';
@@ -163,7 +167,7 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
-
+---
 (실수) $queryRaw를 백틱 없이 작성
 
 증상: 구문 에러/빨간줄 잔뜩
@@ -190,12 +194,15 @@ const rows = await prisma.$queryRaw`SELECT NOW() as now`;
 
 해결: npm i dotenv 설치하거나 import 줄 제거.
 
+---
+
 4) 실행 & 확인
 npm run dev            # 또는 node src/index.js
 # 브라우저
 http://localhost:3000/         # { ok: true, ... }
 http://localhost:3000/health   # { ok: true, dbTime: ... }
 
+---
 5) Git 메모
 
 .gitignore
