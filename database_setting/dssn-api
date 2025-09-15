@@ -1,5 +1,7 @@
 DSSN-API 셋업 로그 & 트러블슈팅 메모
+
 ---
+
 0) 환경
 
 Windows 10
@@ -132,8 +134,9 @@ dssn-api/
  └─ package.json
 ---
 3-2. src/lib/prisma.js
-import { PrismaClient } from '@prisma/client';
-export const prisma = new PrismaClient();
+
+""import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();""
 ---
 3-3. src/index.js
 import express from 'express';
@@ -236,14 +239,16 @@ git remote add origin https://github.com/<YOUR_ID>/dssn-api.git
 git push -u origin main
 
 6) 자주 겪은 오류 요약표
-증상	원인	해결
-'mysql'은 내부/외부 명령이 아닙니다	PATH 미등록	MySQL bin 경로 PATH 추가 또는 전체 경로 실행
-MySQL 모니터에서 netstat 입력 시 ->만 늘어남	OS 명령을 MySQL 모니터에서 실행함	exit로 나가서 CMD에서 실행
-ERR_MODULE_NOT_FOUND: '@prisma/client'	Prisma Client가 generated/로 생성됨	schema.prisma의 output 제거 → npx prisma generate
-ERR_MODULE_NOT_FOUND: 'dotenv/config'	dotenv 미설치	npm i dotenv 또는 import 줄 삭제
-$queryRaw 구문 에러	백틱(`) 누락	prisma.$queryRaw\`SELECT NOW() as now\`
-Cannot GET /	루트 라우트 없음	/ 라우트 추가하거나 /health로 확인
-ESM import 에러	package.json에 "type":"module" 없음	"type":"module" 추가
+| 증상                                       | 원인                                 | 해결                                                   |
+| ---------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
+| `'mysql'은 내부/외부 명령이 아닙니다`                | PATH 미등록                           | MySQL `bin` 경로 PATH 추가 또는 전체 경로 실행                   |
+| MySQL 모니터에서 `netstat` 입력 시 `->`만 늘어남     | OS 명령을 MySQL 모니터에서 실행함             | `exit`로 나가서 CMD에서 실행                                 |
+| `ERR_MODULE_NOT_FOUND: '@prisma/client'` | Prisma Client가 `generated/`로 생성됨   | `schema.prisma`의 `output` 제거 → `npx prisma generate` |
+| `ERR_MODULE_NOT_FOUND: 'dotenv/config'`  | dotenv 미설치                         | `npm i dotenv` 또는 import 줄 삭제                        |
+| `$queryRaw` 구문 에러                        | 백틱(\`) 누락                          | `` prisma.$queryRaw\`SELECT NOW() as now\` ``        |
+| `Cannot GET /`                           | 루트 라우트 없음                          | `/` 라우트 추가하거나 `/health`로 확인                          |
+| ESM import 에러                            | package.json에 `"type":"module"` 없음 | `"type":"module"` 추가                                 |
+
 7) 다음 단계(스캐폴드)
 
 src/users.js
