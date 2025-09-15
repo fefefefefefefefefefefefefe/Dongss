@@ -1,21 +1,269 @@
-# Donstory DataBase 설정
----
+DSSN-API 셋업 로그 & 트러블슈팅 메모
+0) 환경
+
+Windows 10
+
+Node.js v22.x (ESM)
+
+MySQL 8.0 (Workbench 설치)
+
+프로젝트 폴더: C:\Users\In-Jae\dssn-api
+
+1) DB 준비 (정상 동작 확인까지)
+1-1. Workbench에서 테이블 생성
+
+스키마: dongstory
+
+Workbench 좌측 SCHEMAS에 dongstory와 테이블들이 보임 → 서버 실행/연결 OK.
+
+1-2. (실수) CMD에서 mysql이 “내부/외부 명령이 아닙니다”
+
+증상:
+
+'mysql'은(는) 내부 또는 외부 명령…이 아닙니다.
+
+
+원인: mysql.exe 경로가 PATH에 없음.
+
+해결:
+
+C:\Program Files\MySQL\MySQL Server 8.0\bin 확인
+
+시스템 환경 변수 → Path → 위 경로 추가 → 새 CMD 열기
+
+또는 전체 경로로 실행:
+
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p -h 127.0.0.1 -P 3306
+
+1-3. MySQL 접속/기본 쿼리
+SHOW DATABASES;
+USE dongstory;
+SHOW TABLES;
+SELECT NOW();
+EXIT;
+
+1-4. (실수) netstat를 MySQL 모니터 안에서 실행함
+
+증상: mysql> 프롬프트에서 netstat -ano | findstr 3306 입력 → 줄 맨 앞에 ->만 늘어남.
+
+원인: MySQL 모니터는 SQL만 받음. OS 명령은 CMD/PowerShell에서 실행해야 함.
+
+해결: exit로 나가서 CMD에서 실행:
+
+netstat -ano | findstr 3306
+
+2) Node + Prisma 프로젝트 생성
+2-1. 프로젝트 초기화
+mkdir dssn-api && cd dssn-api
 npm init -y
----
+npm i express @prisma/client dotenv
+npm i -D prisma nodemon
 
-→ package.json 파일 생김.
+2-2. package.json(E.SM, 스크립트)
+{
+  "name": "dssn-api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js",
+    "start": "node src/index.js",
+    "prisma:pull": "prisma db pull",
+    "prisma:gen": "prisma generate",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.1",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.1",
+    "nodemon": "^3.1.0"
+  }
+}
 
-###  3) Prisma 설치
-npm install @prisma/client
-npm install -D prisma
-
-
-  4) Prisma 초기화
+2-3. Prisma 초기화 + DB 연결
 npx prisma init --datasource-provider mysql
 
 
-👉 이 명령어 실행 후 prisma/ 폴더랑 .env 파일이 자동으로 생겨.
+.env
 
-.env 안에 DB 주소 넣기:
+DATABASE_URL="mysql://root:<비밀번호>@127.0.0.1:3306/dongstory"
 
-DATABASE_URL="mysql://root:비밀번호@127.0.0.1:3306/dongstory"
+
+prisma/schema.prisma (최소 설정)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+  // relationMode = "prisma"  // FK 없이 관계 쓰고 싶을 때만 켬
+}
+
+2-4. DB 스키마 끌어오기 + 클라이언트 생성
+npx prisma db pull
+npx prisma generate
+
+(실수) Prisma Client가 generated/에 생성되어 import 에러
+
+증상: ERR_MODULE_NOT_FOUND: '@prisma/client'
+
+원인: generator client에 output=... 설정이 들어가 **로컬 generated/prisma**로 생성됨.
+
+해결(추천): schema.prisma에서 output 제거 → 다시 npx prisma generate
+(대안: import { PrismaClient } from '../../generated/prisma/index.js'로 경로를 바꿔도 되지만 권장 X)
+
+3) 코드 뼈대 + 헬스체크
+3-1. 폴더
+dssn-api/
+ ├─ prisma/schema.prisma
+ ├─ src/
+ │   ├─ lib/prisma.js
+ │   └─ index.js
+ ├─ .env
+ └─ package.json
+
+3-2. src/lib/prisma.js
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();
+
+3-3. src/index.js
+import express from 'express';
+import 'dotenv/config';
+import { prisma } from './lib/prisma.js';
+
+const app = express();
+app.use(express.json());
+
+// (선택) 루트 핑
+app.get('/', (_req, res) => {
+  res.json({ ok: true, service: 'DSSN API', ts: new Date().toISOString() });
+});
+
+// 헬스체크: 서버 + DB 연결
+app.get('/health', async (_req, res, next) => {
+  try {
+    // (실수 포인트) `$queryRaw`는 **반드시 백틱**으로 감싸야 함!
+    const rows = await prisma.$queryRaw`SELECT NOW() as now`;
+    res.json({ ok: true, dbTime: rows[0].now });
+  } catch (e) {
+    console.error(e);
+    next(e);
+  }
+});
+
+// 에러 핸들러
+app.use((err, _req, res, _next) => {
+  res.status(500).json({ message: 'Internal error' });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
+
+(실수) $queryRaw를 백틱 없이 작성
+
+증상: 구문 에러/빨간줄 잔뜩
+
+해결:
+
+// ❌  const rows = await prisma.$queryRaw SELECT NOW() as now;
+// ✅
+const rows = await prisma.$queryRaw`SELECT NOW() as now`;
+// 또는
+// const rows = await prisma.$queryRawUnsafe('SELECT NOW() as now');
+
+(실수) Cannot GET /
+
+증상: 브라우저 http://localhost:3000/ → “Cannot GET /”
+
+원인: 루트 라우트(/)를 안 만들었을 뿐. 서버는 정상.
+
+해결: 위에 루트 핑 라우트 추가하거나 /health로 접속.
+
+(실수) dotenv 미설치인데 import 'dotenv/config' 사용
+
+증상: ERR_MODULE_NOT_FOUND: 'dotenv/config'
+
+해결: npm i dotenv 설치하거나 import 줄 제거.
+
+4) 실행 & 확인
+npm run dev            # 또는 node src/index.js
+# 브라우저
+http://localhost:3000/         # { ok: true, ... }
+http://localhost:3000/health   # { ok: true, dbTime: ... }
+
+5) Git 메모
+
+.gitignore
+
+node_modules/
+npm-debug.log*
+yarn-*.log
+.env
+.env.*.local
+prisma/*.db
+prisma/*.db-journal
+generated/
+.DS_Store
+Thumbs.db
+.vscode/
+
+
+.env.example
+
+DATABASE_URL="mysql://root:<PASSWORD>@127.0.0.1:3306/dongstory"
+
+
+최초 커밋/푸시
+
+git init
+git branch -M main
+git add .
+git commit -m "chore: init Express + Prisma; add health check; fix queryRaw/backticks"
+
+git remote add origin https://github.com/<YOUR_ID>/dssn-api.git
+git push -u origin main
+
+6) 자주 겪은 오류 요약표
+증상	원인	해결
+'mysql'은 내부/외부 명령이 아닙니다	PATH 미등록	MySQL bin 경로 PATH 추가 또는 전체 경로 실행
+MySQL 모니터에서 netstat 입력 시 ->만 늘어남	OS 명령을 MySQL 모니터에서 실행함	exit로 나가서 CMD에서 실행
+ERR_MODULE_NOT_FOUND: '@prisma/client'	Prisma Client가 generated/로 생성됨	schema.prisma의 output 제거 → npx prisma generate
+ERR_MODULE_NOT_FOUND: 'dotenv/config'	dotenv 미설치	npm i dotenv 또는 import 줄 삭제
+$queryRaw 구문 에러	백틱(`) 누락	prisma.$queryRaw\`SELECT NOW() as now\`
+Cannot GET /	루트 라우트 없음	/ 라우트 추가하거나 /health로 확인
+ESM import 에러	package.json에 "type":"module" 없음	"type":"module" 추가
+7) 다음 단계(스캐폴드)
+
+src/users.js
+
+import { Router } from 'express';
+import { prisma } from './lib/prisma.js';
+const r = Router();
+
+r.get('/', async (_req, res, next) => {
+  try {
+    const users = await prisma.user.findMany({ take: 50, orderBy: { id: 'desc' }});
+    res.json(users);
+  } catch (e) { next(e); }
+});
+
+r.post('/', async (req, res, next) => {
+  try {
+    const { username, password, email, name } = req.body;
+    const u = await prisma.user.create({ data: { username, password, email, name } });
+    res.status(201).json(u);
+  } catch (e) { next(e); }
+});
+
+export default r;
+
+
+src/index.js
+
+import users from './users.js';
+app.use('/users', users);
