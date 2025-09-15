@@ -1,11 +1,11 @@
-##Node 프로젝트 초기화##
-  --
+# Donstory DataBase 설정
+---
 npm init -y
---
+---
 
 → package.json 파일 생김.
 
-  3) Prisma 설치
+###  3) Prisma 설치
 npm install @prisma/client
 npm install -D prisma
 
