@@ -1,0 +1,21 @@
+##Node 프로젝트 초기화##
+  --
+npm init -y
+--
+
+→ package.json 파일 생김.
+
+  3) Prisma 설치
+npm install @prisma/client
+npm install -D prisma
+
+
+  4) Prisma 초기화
+npx prisma init --datasource-provider mysql
+
+
+👉 이 명령어 실행 후 prisma/ 폴더랑 .env 파일이 자동으로 생겨.
+
+.env 안에 DB 주소 넣기:
+
+DATABASE_URL="mysql://root:비밀번호@127.0.0.1:3306/dongstory"
