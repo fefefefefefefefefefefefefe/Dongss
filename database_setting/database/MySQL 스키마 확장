@@ -1,0 +1,13 @@
+회원가입 필드 
+
+ALTER TABLE `user`
+  ADD COLUMN student_no     VARCHAR(32)  NOT NULL UNIQUE AFTER id,
+  ADD COLUMN name           VARCHAR(191) NULL AFTER email,
+  ADD COLUMN nickname       VARCHAR(191) NULL UNIQUE AFTER name,
+  ADD COLUMN gender         ENUM('male','female') NULL AFTER nickname,
+  ADD COLUMN department     VARCHAR(191) NULL AFTER gender,
+  ADD COLUMN birthday       DATE         NULL AFTER department,
+  ADD COLUMN university     VARCHAR(191) NOT NULL DEFAULT '동서울대학교' AFTER birthday,
+  ADD COLUMN email_verified TINYINT(1)   NOT NULL DEFAULT 0 AFTER university,
+  ADD COLUMN verification_token   VARCHAR(64)  NULL AFTER email_verified,
+  ADD COLUMN verification_sent_at DATETIME     NULL AFTER verification_token;
