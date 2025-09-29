@@ -61,14 +61,13 @@ erDiagram
 알림/운영: notification, report, user_block, profile_visit, search_history, feed_cache, file_report
 
 나중에 드롭/재생성할 땐 역순으로 지우면 OK.
-
 -- =============================================================================
--- Fresh setup for 'dongstory'
+-- Fresh setup for 'dongstory' (+ signup fields + EmailVerification)
 -- =============================================================================
 SET NAMES utf8mb4;
 SET time_zone = '+09:00';
 
--- 선택: 깨끗이 시작하고 싶으면 주석을 풀어 실행
+-- 필요 시 전체 드롭 (원하면 주석 해제)
 -- SET FOREIGN_KEY_CHECKS = 0;
 -- DROP TABLE IF EXISTS
 --   file_report, feed_cache, search_history, profile_visit, user_block, report,
@@ -76,11 +75,12 @@ SET time_zone = '+09:00';
 --   post_reaction, comment_like, post_like, bookmark, repost, comment,
 --   post_tag, post_file, follow, chat_room, tag, emoji,
 --   user_security, user_oauth, user_profile,
---   post, community, `user`;
+--   post, community, `user`, EmailVerification;
 -- SET FOREIGN_KEY_CHECKS = 1;
 
 -- =============================================================================
 -- 1) USER (예약어라 백틱)
+--    ⬇️ signup 확장: student_no/department/university/email_verified
 -- =============================================================================
 CREATE TABLE `user` (
   id             INT AUTO_INCREMENT PRIMARY KEY,
@@ -92,7 +92,13 @@ CREATE TABLE `user` (
   profile_img    VARCHAR(512),
   bio            TEXT,
   gender         VARCHAR(50),
+  -- signup fields
+  student_no     VARCHAR(20) UNIQUE,
+  department     VARCHAR(100),
+  university     VARCHAR(100) NOT NULL DEFAULT '동서울대학교',
+  -- (중복 표기는 허용: user_security에도 email_verified가 있으나 여기에도 둠)
   email_verified TINYINT(1) NOT NULL DEFAULT 0,
+  -- 기본 필드
   status         ENUM('active','inactive','suspended','deleted') NOT NULL DEFAULT 'active',
   website        VARCHAR(255),
   `location`     VARCHAR(255),
@@ -100,6 +106,24 @@ CREATE TABLE `user` (
   oauth_provider VARCHAR(100),
   oauth_id       VARCHAR(191),
   created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =============================================================================
+-- 1-1) EmailVerification (이메일 인증 코드 저장)
+-- =============================================================================
+CREATE TABLE EmailVerification (
+  id         INT           NOT NULL AUTO_INCREMENT,
+  email      VARCHAR(255)  NOT NULL,
+  code       VARCHAR(6)    NOT NULL,          -- 6자리
+  purpose    VARCHAR(50)   NOT NULL,          -- 'signup' 등
+  expiresAt  DATETIME(0)   NOT NULL,
+  consumedAt DATETIME(0)   NULL,
+  userId     INT           NULL,
+  PRIMARY KEY (id),
+  KEY idx_emailverif_email_purpose_exp (email, purpose, expiresAt),
+  CONSTRAINT fk_emailverif_user
+    FOREIGN KEY (userId) REFERENCES `user`(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
@@ -176,7 +200,7 @@ CREATE TABLE user_security (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 7) POST (피드 핵심)
+-- 7) POST
 -- =============================================================================
 CREATE TABLE post (
   id             INT AUTO_INCREMENT PRIMARY KEY,
@@ -203,7 +227,7 @@ CREATE TABLE post (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 8) POST_FILE (이미지/동영상 파일)
+-- 8) POST_FILE
 -- =============================================================================
 CREATE TABLE post_file (
   id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -219,7 +243,7 @@ CREATE TABLE post_file (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 9) FOLLOW (복합 PK)  — 팔로잉 타임라인의 기반
+-- 9) FOLLOW
 -- =============================================================================
 CREATE TABLE follow (
   follower_id  INT NOT NULL,
@@ -236,7 +260,7 @@ CREATE TABLE follow (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 10) POST_TAG (해시태그/토픽)
+-- 10) POST_TAG
 -- =============================================================================
 CREATE TABLE post_tag (
   post_id INT NOT NULL,
@@ -252,7 +276,7 @@ CREATE TABLE post_tag (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 11) COMMENT (자기참조)
+-- 11) COMMENT
 -- =============================================================================
 CREATE TABLE comment (
   id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -287,12 +311,8 @@ CREATE TABLE post_like (
   post_id    INT NOT NULL,
   user_id    INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_postlike_post
-    FOREIGN KEY (post_id) REFERENCES post(id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_postlike_user
-    FOREIGN KEY (user_id) REFERENCES `user`(id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_postlike_post FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_postlike_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
   UNIQUE KEY unique_post_like (post_id, user_id),
   INDEX idx_postlike_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -302,18 +322,14 @@ CREATE TABLE comment_like (
   comment_id INT NOT NULL,
   user_id    INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_commentlike_comment
-    FOREIGN KEY (comment_id) REFERENCES comment(id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_commentlike_user
-    FOREIGN KEY (user_id) REFERENCES `user`(id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_commentlike_comment FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_commentlike_user    FOREIGN KEY (user_id)    REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
   UNIQUE KEY unique_comment_like (comment_id, user_id),
   INDEX idx_commentlike_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 14) POST_REACTION (이모지 반응)
+-- 14) POST_REACTION
 -- =============================================================================
 CREATE TABLE post_reaction (
   post_id    INT NOT NULL,
@@ -329,7 +345,7 @@ CREATE TABLE post_reaction (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- (추가) 14-1) BOOKMARK  — 저장/북마크
+-- 14-1) BOOKMARK
 -- =============================================================================
 CREATE TABLE bookmark (
   id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -344,7 +360,7 @@ CREATE TABLE bookmark (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- (추가) 14-2) REPOST  — 리트윗/리그램 + 인용(quote)
+-- 14-2) REPOST
 -- =============================================================================
 CREATE TABLE repost (
   id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -461,7 +477,7 @@ CREATE TABLE search_history (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================================
--- 22) FEED_CACHE (선택) / 23) FILE_REPORT
+-- 22) FEED_CACHE / 23) FILE_REPORT
 -- =============================================================================
 CREATE TABLE feed_cache (
   id         INT AUTO_INCREMENT PRIMARY KEY,
