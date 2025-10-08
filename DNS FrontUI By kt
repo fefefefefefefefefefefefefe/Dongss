@@ -1,0 +1,414 @@
+Supplies -> drawable
+ic_home.xml (홈 아이콘)
+
+ic_schedule.xml (시간표 아이콘)
+
+ic_chat.xml (채팅 아이콘)
+
+ic_profile.xml (프로필 아이콘)
+
+placeholder_avatar.png (작은 원형 아바타)
+
+placeholder_post.jpg (피드용 이미지)
+
+~
+
+build.gradle (모듈: app) — 필수 의존성
+
+// build.gradle (app)
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace "com.example.studentsns"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.studentsns"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.5.3' // 적절한 버전으로 조정
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core-ktx:1.12.0"
+    implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.6.1"
+
+    // Jetpack Compose
+    implementation "androidx.activity:activity-compose:1.8.0"
+    implementation "androidx.compose.ui:ui:1.5.3"
+    implementation "androidx.compose.material:material:1.5.3"
+    implementation "androidx.compose.ui:ui-tooling-preview:1.5.3"
+
+    // Navigation for Compose
+    implementation "androidx.navigation:navigation-compose:2.7.0"
+
+    // Optional: coil for image loading
+    implementation "io.coil-kt:coil-compose:2.4.0"
+
+    debugImplementation "androidx.compose.ui:ui-tooling:1.5.3"
+}
+
+colors.xml (res/values/colors.xml) ~
+
+<resources>
+    <color name="turquoise">#00B2A9</color> <!-- 청록색 -->
+    <color name="turquoise_light">#E8F9F7</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_primary">#1F2937</color>
+    <color name="muted">#6B7280</color>
+</resources>
+
+MainActivity.kt ~
+
+package com.example.studentsns
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.example.studentsns.ui.theme.StudentsnsTheme
+import androidx.navigation.compose.rememberNavController
+import androidx.compose.material.Surface
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            StudentsnsTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppEntry()
+                }
+            }
+        }
+    }
+}
+
+AppEntry.kt (네비게이션 및 레이아웃 골격)~
+
+package com.example.studentsns
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.studentsns.ui.screens.*
+
+@Composable
+fun AppEntry() {
+    val navController = rememberNavController()
+    var selected by remember { mutableStateOf(BottomNavItem.FEED.route) }
+
+    Scaffold(
+        topBar = { /* 빈 상단 (뉴스는 FeedScreen 내부에) */ },
+        bottomBar = {
+            BottomNavigationBar(selected = selected, onSelect = {
+                selected = it
+                navController.navigate(it) {
+                    // popUpTo 및 singleTop 등 필요한 네비게이션 옵션 추가 가능
+                }
+            })
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            NavHost(navController = navController, startDestination = BottomNavItem.FEED.route) {
+                composable(BottomNavItem.FEED.route) { FeedScreen() }
+                composable(BottomNavItem.SCHEDULE.route) { ScheduleScreen() }
+                composable(BottomNavItem.CHAT.route) { ChatScreen() }
+                composable(BottomNavItem.PROFILE.route) { ProfileScreen() }
+            }
+        }
+    }
+}
+
+BottomNavItem.kt ~
+
+package com.example.studentsns
+
+sealed class BottomNavItem(val route: String, val label: String, val drawable: Int) {
+    object FEED: BottomNavItem("feed", "피드", R.drawable.ic_home)
+    object SCHEDULE: BottomNavItem("schedule", "시간표", R.drawable.ic_schedule)
+    object CHAT: BottomNavItem("chat", "채팅", R.drawable.ic_chat)
+    object PROFILE: BottomNavItem("profile", "프로필", R.drawable.ic_profile)
+
+BottomNavigationBar.kt (하단 탐색 바)~
+
+package com.example.studentsns
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.BottomNavigation
+import androidx.compose.material.BottomNavigationItem
+import androidx.compose.material.Icon
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import com.example.studentsns.ui.theme.Turquoise
+import com.example.studentsns.ui.theme.TurquoiseLight
+
+@Composable
+fun BottomNavigationBar(selected: String, onSelect: (String) -> Unit) {
+    BottomNavigation(
+        backgroundColor = TurquoiseLight,
+        contentColor = Turquoise,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+    ) {
+        val items = listOf(
+            BottomNavItem.FEED,
+            BottomNavItem.SCHEDULE,
+            BottomNavItem.CHAT,
+            BottomNavItem.PROFILE
+        )
+        items.forEach { item ->
+            BottomNavigationItem(
+                icon = {
+                    Icon(
+                        painter = painterResource(id = item.drawable),
+                        contentDescription = item.label,
+                        modifier = Modifier.size(28.dp)
+                    )
+                },
+                selected = selected == item.route,
+                onClick = { onSelect(item.route) },
+                label = { Text(item.label) },
+                alwaysShowLabel = true
+            )
+        }
+    }
+}
+
+FeedScreen.kt (상단 새 소식, 카드형 피드)~
+
+ackage com.example.studentsns.ui.screens
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Card
+import androidx.compose.material.Surface
+import androidx.compose.material.Text
+import androidx.compose.material.IconButton
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import com.example.studentsns.R
+import com.example.studentsns.ui.theme.Turquoise
+import com.example.studentsns.ui.theme.TurquoiseLight
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+data class Post(val id: Int, val author: String, val timeAgo: String, val imageRes: Int, val text: String)
+
+@Composable
+fun FeedScreen() {
+    val posts = listOf(
+        Post(1, "김민지", "2분 전", R.drawable.placeholder_post, "오늘 도서관에서 스터디 했어요!"),
+        Post(2, "박준호", "3분 전", R.drawable.placeholder_post, "교정 사진이에요.")
+    )
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 상단 뉴스
+        Surface(
+            color = Turquoise,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("대학 뉴스", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("새 학기 신입생 환영회 안내", color = androidx.compose.ui.graphics.Color.White, fontSize = 12.sp)
+                }
+                IconButton(onClick = { /* 알림 클릭 */ }) {
+                    Icon(Icons.Default.Notifications, contentDescription = "notifications", tint = androidx.compose.ui.graphics.Color.White)
+                }
+            }
+        }
+
+        // 피드 목록
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(TurquoiseLight)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(posts) { post ->
+                PostCard(post = post)
+            }
+        }
+    }
+}
+
+@Composable
+fun PostCard(post: Post) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        elevation = 6.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.background(androidx.compose.ui.graphics.Color.White)) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = R.drawable.placeholder_avatar),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(text = post.author, fontWeight = FontWeight.Bold)
+                    Text(text = post.timeAgo, fontSize = 12.sp, color = androidx.compose.ui.graphics.Color.Gray)
+                }
+            }
+            Image(
+                painter = painterResource(id = post.imageRes),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)),
+                contentScale = ContentScale.Crop
+            )
+        }
+    }
+}
+
+ScheduleScreen.kt~
+
+package com.example.studentsns.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.Card
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun ScheduleScreen() {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(text = "내 시간표", fontSize = androidx.compose.ui.unit.sp(20))
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(modifier = Modifier.fillMaxWidth().height(180.dp), elevation = 4.dp) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("시간표 및 개별 일정 정리 기능들을 정리할 수 있음.")
+            }
+        }
+    }
+}
+
+ChatScreen.kt~
+
+package com.example.studentsns.ui.screens
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.Card
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+fun ChatScreen() {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(text = "💬 채팅", fontSize = androidx.compose.ui.unit.sp(20))
+        Spacer(modifier = Modifier.height(12.dp))
+        Card(modifier = Modifier.fillMaxWidth().height(180.dp), elevation = 4.dp) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("대화 목록/실시간 채팅 UI를 연동하세요.")
+            }
+        }
+    }
+}
+
+ProfileScreen.kt~
+
+package com.example.studentsns.ui.screens
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.Card
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import com.example.studentsns.R
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+
+@Composable
+fun ProfileScreen() {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(painter = painterResource(id = R.drawable.placeholder_avatar),
+            contentDescription = null,
+            modifier = Modifier.size(96.dp).clip(CircleShape)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text("강민성", fontSize = androidx.compose.ui.unit.sp(20))
+        Text("컴퓨터소프트웨어과 3학년", color = androidx.compose.ui.graphics.Color.Gray)
+    }
+}
+
+Theme.kt~
+
+package com.example.studentsns.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val Turquoise = Color(0xFF00B2A9)
+val TurquoiseLight = Color(0xFFE8F9F7)
+val White = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF1F2937)
+val Muted = Color(0xFF6B7280)
