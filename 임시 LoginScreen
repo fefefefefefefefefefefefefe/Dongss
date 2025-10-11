@@ -1,0 +1,113 @@
+//compose 기능 활성화 필  buildFeatures { compose true }
+
+package com.example.dns.ui.auth
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.studentsns.ui.theme.Turquoise
+import com.google.firebase.auth.FirebaseAuth
+
+@Composable
+fun LoginScreen(navController: NavController) {
+    val auth = FirebaseAuth.getInstance()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("로그인", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Turquoise)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("이메일") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("비밀번호") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                if (email.isNotEmpty() && password.isNotEmpty()) {
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnSuccessListener {
+                            navController.navigate("feed") // 로그인 성공 시 피드로 이동
+                        }
+                        .addOnFailureListener { e ->
+                            errorMessage = "아이디 또는 비밀번호를 다시 확인해주세요."
+                            showError = true
+                        }
+                } else {
+                    errorMessage = "모든 항목을 입력해주세요."
+                    showError = true
+                }
+            },
+            colors = ButtonDefaults.buttonColors(backgroundColor = Turquoise),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("로그인", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = { navController.navigate("register") }) {
+            Text("계정이 없으신가요? 회원가입", color = Turquoise)
+        }
+    }
+
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("로그인 실패") },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                TextButton(onClick = { showError = false }) {
+                    Text("확인", color = Turquoise)
+                }
+            }
+        )
+    }
+}
+
+
+~~ 여기는 테마
+package com.example.dns.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val Turquoise = Color(0xFF00B2A9)
+val TurquoiseLight = Color(0xFFE8F9F7)
+val White = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF1F2937)
+val Muted = Color(0xFF6B7280)
