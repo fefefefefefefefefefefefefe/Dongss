@@ -1,0 +1,56 @@
+// lib/main.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:dong_story/providers/post_provider.dart';
+import 'package:dong_story/providers/auth_provider.dart';
+import 'package:dong_story/screens/home_screen.dart';
+import 'package:dong_story/screens/login_screen.dart';
+import 'package:dong_story/providers/chat_provider.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // MultiProvider를 사용하여 모든 프로바이더를 등록합니다.
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => PostProvider()),
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+        ChangeNotifierProvider(create: (context) => ChatProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Dong Story',
+        theme: ThemeData(
+          primarySwatch: Colors.green,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+        ),
+        // 로그인 상태에 따라 화면을 분기하는 AuthWrapper를 시작점으로 사용
+        home: const AuthWrapper(),
+      ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // AuthProvider의 상태(isLoggedIn)를 감시합니다.
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    if (authProvider.isLoggedIn) {
+      // 로그인 상태: 홈 화면으로 이동
+      return const HomeScreen();
+    } else {
+      // 로그아웃 상태: 로그인 화면으로 이동
+      return const LoginScreen();
+    }
+  }
+}
