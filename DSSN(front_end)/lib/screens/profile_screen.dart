@@ -2,396 +2,335 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:dong_story/providers/post_provider.dart';
 import 'package:dong_story/providers/auth_provider.dart';
-import 'package:dong_story/models/user.dart';
-import 'package:dong_story/screens/friends_management_screen.dart';
+import 'package:dong_story/providers/post_provider.dart';
+import 'package:dong_story/models/post.dart';
+import 'package:dong_story/screens/settings_screen.dart';
 import 'package:dong_story/screens/profile_edit_screen.dart';
+import 'package:dong_story/screens/friend_recommend_screen.dart'; // 💡 [추가] 친구 추천 화면 임포트
+import 'package:dong_story/screens/friends_management_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+enum PostViewType { feed, community }
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  PostViewType _currentView = PostViewType.feed;
+
+  List<Post> _getFilteredPosts(BuildContext context, AuthProvider auth, PostProvider post) {
+    final currentUserId = auth.loggedInUser?.id;
+    if (currentUserId == null) return [];
+
+    final userPosts = post.posts
+        .where((p) => p.authorId == currentUserId)
+        .toList();
+
+    if (_currentView == PostViewType.feed) {
+      return userPosts.where((p) => p.isFeedPost == true).toList();
+    } else { // PostViewType.community
+      return userPosts.where((p) => p.isFeedPost == false).toList();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final userNickname = authProvider.currentUser ?? '비회원';
+    final postProvider = Provider.of<PostProvider>(context);
+    final user = authProvider.loggedInUser;
 
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 250.0,
-            floating: false,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: null,
-              background: Container(
-                color: const Color(0xFF1E8854),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.white,
-                        child: Icon(Icons.person, size: 60, color: Color(0xFF1E8854)),
-                      ),
-                      const SizedBox(height: 10),
-                      // 닉네임을 프로필 사진 아래에 배치
-                      Text(
-                        userNickname,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SliverList(
-            delegate: SliverChildListDelegate(
-              [
-                const _ProfileContent(),
-                // 오버플로우 최종 방지용 여유 공간
-                const SizedBox(height: 80),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileContent extends StatelessWidget {
-  const _ProfileContent();
-
-  Widget _buildEditShareButtons(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ProfileEditScreen(), // 💡 연결
-                ),
-              );
-            },
-            icon: const Icon(Icons.edit, size: 18),
-            label: const Text('프로필 편집'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black,
-              side: BorderSide(color: Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          // 💡 "친구 관리" 버튼으로 변경
-          child: OutlinedButton.icon(
-            onPressed: () {
-              // FriendsManagementScreen으로 이동
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const FriendsManagementScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Icons.group, size: 18),
-            label: const Text('친구 관리'), // 💡 텍스트 변경
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black,
-              side: BorderSide(color: Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.loggedInUser;
-
-        if (user == null) {
-          return const Padding(
-            padding: EdgeInsets.all(32.0),
-            child: Center(child: Text('로그인 후 이용 가능합니다.')),
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.nickname,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${user.major} 학과',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildEditShareButtons(context),
-                ],
-              ),
-            ),
-
-            const Divider(),
-
-            _RecommendedFriendsSection(authProvider: authProvider),
-
-            const Divider(),
-
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionTitle('나의 활동'),
-                  _buildActivityButtons(context),
-                  const Divider(),
-                  _buildSectionTitle('작성한 게시물'),
-                  _buildPostGrid(context),
-
-                  const SizedBox(height: 30),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        authProvider.logout();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        minimumSize: const Size(200, 45),
-                      ),
-                      child: const Text('로그아웃', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildActivityButtons(BuildContext context) {
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _ActivityItem(Icons.thumb_up, '좋아요'),
-        _ActivityItem(Icons.bookmark, '저장됨'),
-        _ActivityItem(Icons.comment, '댓글'),
-      ],
-    );
-  }
-
-  Widget _buildPostGrid(BuildContext context) {
-    return Consumer<PostProvider>(
-      builder: (context, postProvider, child) {
-        final posts = postProvider.posts;
-
-        if (posts.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(30.0),
-              child: Text('작성된 게시물이 없습니다.'),
-            ),
-          );
-        }
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 4.0,
-            mainAxisSpacing: 4.0,
-          ),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = posts[index];
-            return Container(
-              color: Colors.grey[200],
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Text(
-                    post.title ?? '',
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _ActivityItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _ActivityItem(this.icon, this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 30, color: const Color(0xFF1E8854)),
-        const SizedBox(height: 4),
-        Text(label),
-      ],
-    );
-  }
-}
-
-class _RecommendedFriendsSection extends StatelessWidget {
-  final AuthProvider authProvider;
-
-  const _RecommendedFriendsSection({required this.authProvider});
-
-  @override
-  Widget build(BuildContext context) {
-    final recommendedUsers = authProvider.recommendedFriends;
-
-    if (recommendedUsers.isEmpty) {
-      return Container();
+    if (user == null) {
+      return const Center(child: Text('로그인이 필요합니다.'));
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0, left: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '친구 추천',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
+    final postsToShow = _getFilteredPosts(context, authProvider, postProvider);
 
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: recommendedUsers.length,
-              itemBuilder: (context, index) {
-                final user = recommendedUsers[index];
-                return _FriendRecommendationCard(
-                  user: user,
-                  authProvider: authProvider,
-                );
-              },
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(user.nickname, style: const TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.black),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
           ),
         ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. 프로필 정보 섹션
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: user.profileImageUrl != null
+                        ? NetworkImage(user.profileImageUrl!) as ImageProvider
+                        : null,
+                    child: user.profileImageUrl == null
+                        ? const Icon(Icons.person, size: 50, color: Colors.white)
+                        : null,
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.major,
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                        Text(
+                          user.nickname,
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(user.bio ?? '', style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+
+                  // 프로필 편집 아이콘 버튼
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 20, color: Colors.black54),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+
+            // 2. 주요 액션 버튼 섹션 (친구, 추천)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _ProfileActionButton(
+                  icon: Icons.people_outline,
+                  label: '친구 목록 (${user.friends.length})',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        // 💡 파일 이름이 friends_management_screen.dart이므로 해당 클래스를 사용합니다.
+                          builder: (context) => const FriendsManagementScreen()),);
+                  },
+                ),
+                _ProfileActionButton(
+                  icon: Icons.person_add_alt_outlined,
+                  label: '친구 추천',
+                  onTap: () {
+                    // ✅ [수정] 친구 추천 화면으로 이동
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const FriendRecommendScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const Divider(),
+
+            // 3. 작성 게시물 탭
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Text(
+                '나의 작성 게시물',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+
+            // 💡 탭 전환 버튼
+            Row(
+              children: [
+                Expanded(
+                  child: _TabButton(
+                    label: '작성 게시물',
+                    isSelected: _currentView == PostViewType.feed,
+                    onTap: () {
+                      setState(() {
+                        _currentView = PostViewType.feed;
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: _TabButton(
+                    label: '커뮤니티 글',
+                    isSelected: _currentView == PostViewType.community,
+                    onTap: () {
+                      setState(() {
+                        _currentView = PostViewType.community;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+
+            const Divider(height: 1),
+
+            // 4. 게시물 목록
+            if (postsToShow.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: Center(
+                  child: Text(
+                    _currentView == PostViewType.feed
+                        ? '작성한 게시물이 없습니다.'
+                        : '작성한 커뮤니티 게시물이 없습니다.',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              ...postsToShow.map((post) => _MyPostCard(post: post)).toList(),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _FriendRecommendationCard extends StatelessWidget {
-  final User user;
-  final AuthProvider authProvider;
+// ------------------------------------
+// 헬퍼 위젯: 액션 버튼
+// ------------------------------------
+class _ProfileActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
-  const _FriendRecommendationCard({required this.user, required this.authProvider});
+  const _ProfileActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isSameMajor = user.major == authProvider.loggedInUser?.major;
-    final isFriend = authProvider.isFriend(user.id);
-
-    return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(10),
-        color: isSameMajor ? Colors.green.shade50 : Colors.white,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10.0),
+        child: Column(
+          children: [
+            Icon(icon, size: 28, color: const Color(0xFF1E8854)),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+          ],
+        ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircleAvatar(
-            radius: 20,
-            child: Icon(Icons.person),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            user.nickname,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            isSameMajor ? '같은 학과' : user.major,
-            style: TextStyle(fontSize: 11, color: isSameMajor ? Colors.green.shade700 : Colors.grey),
-          ),
-          const SizedBox(height: 5),
-          SizedBox(
-            height: 25,
-            child: ElevatedButton(
-              onPressed: () {
-                final action = isFriend ? '친구 끊기' : '친구 추가';
+    );
+  }
+}
 
-                // 친구 상태 토글
-                authProvider.toggleFriend(user.id);
+// ------------------------------------
+// 헬퍼 위젯: 탭 전환 버튼
+// ------------------------------------
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-                // 💡 친구 추가/끊기 시 스낵바 메시지 표시
-                String message;
-                if (!isFriend) {
-                  message = '${user.nickname}님에게 친구를 요청했습니다.';
-                } else {
-                  message = '${user.nickname}님과의 친구 관계를 취소했습니다.';
-                }
+  const _TabButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message)),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isFriend ? Colors.grey : const Color(0xFF1E8854),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: Size.zero,
-              ),
-              child: Text(
-                isFriend ? '친구 끊기' : '친구 추가',
-                style: const TextStyle(fontSize: 12, color: Colors.white),
-              ),
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? const Color(0xFF1E8854) : Colors.grey.shade300,
+              width: isSelected ? 2.0 : 1.0,
             ),
           ),
-        ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? const Color(0xFF1E8854) : Colors.black54,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------
+// 게시물 표시를 위한 임시 위젯
+// ------------------------------------
+class _MyPostCard extends StatelessWidget {
+  final Post post;
+
+  const _MyPostCard({required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Card(
+        elevation: 0.5,
+        child: ListTile(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                post.content.length > 50
+                    ? '${post.content.substring(0, 50)}...'
+                    : post.content,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 4),
+            ],
+          ),
+
+          subtitle: Row(
+            children: [
+              const Icon(Icons.favorite_border, size: 14, color: Colors.red),
+              const SizedBox(width: 4),
+              Text('${post.likes}', style: const TextStyle(fontSize: 12, color: Colors.red)),
+              const SizedBox(width: 12),
+              const Icon(Icons.comment_outlined, size: 14, color: Colors.blue),
+              const SizedBox(width: 4),
+              Text('${post.comments}', style: const TextStyle(fontSize: 12, color: Colors.blue)),
+            ],
+          ),
+
+          onTap: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('게시물 [${post.id}] 상세 보기')),
+            );
+          },
+        ),
       ),
     );
   }
