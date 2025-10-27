@@ -1,13 +1,15 @@
-// lib/screens/write_post_screen.dart
+// lib/screens/write_post_screen.dart (전체 덮어쓰기)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dong_story/providers/post_provider.dart';
-import 'package:dong_story/models/post.dart';
+import 'package:dong_story/providers/auth_provider.dart';
+import 'package:dong_story/models/post.dart'; // BoardType enum 사용을 위해 임포트
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 class WritePostScreen extends StatefulWidget {
+  // 이 화면이 커뮤니티 전용이라고 가정하고, 초기 게시판 타입은 제거
   const WritePostScreen({super.key});
 
   @override
@@ -17,12 +19,20 @@ class WritePostScreen extends StatefulWidget {
 class _WritePostScreenState extends State<WritePostScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
+  final _formKey = GlobalKey<FormState>(); // 폼 검증을 위해 추가
+
   String? _imagePath;
   final picker = ImagePicker();
 
-  // ✅ 게시판 선택 관련 상태 및 옵션 추가
-  final List<String> _boardOptions = ['자유게시판', '질문게시판', '정보공유'];
-  String _selectedBoard = '자유게시판';
+  // ✅ [수정] 게시판 옵션을 BoardType enum 목록으로 변경
+  final List<BoardType> _boardOptions = [
+    BoardType.free,
+    BoardType.question,
+    BoardType.information,
+  ];
+
+  // ✅ [수정] 선택된 게시판 타입도 BoardType으로 변경 (기본값 설정)
+  BoardType? _selectedBoardType = BoardType.free; // 기본값: 자유게시판
 
   @override
   void dispose() {
@@ -42,20 +52,38 @@ class _WritePostScreenState extends State<WritePostScreen> {
   }
 
   void _submitPost() {
-    if (_titleController.text.isNotEmpty && _contentController.text.isNotEmpty) {
-      final newPost = Post(
-        id: DateTime.now().toString(),
-        author: '사용자',
-        title: _titleController.text,
-        content: _contentController.text,
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
+
+    final currentUser = authProvider.loggedInUser;
+
+    if (currentUser == null || _selectedBoardType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사용자 정보 또는 게시판이 선택되지 않았습니다.')),
+      );
+      return;
+    }
+
+    if (_contentController.text.isNotEmpty) {
+
+      // ✅ [수정] createPost 대신 createCommunityPost 함수 호출 및 BoardType 인자 전달
+      postProvider.createCommunityPost(
+        authorId: currentUser.id,
+        authorNickname: currentUser.nickname,
+        title: _titleController.text.trim().isEmpty ? null : _titleController.text.trim(),
+        content: _contentController.text.trim(),
         imagePath: _imagePath,
-        timestamp: DateTime.now(),
-        boardType: _selectedBoard, // ✅ 선택된 게시판 타입 전달
-        isFeedPost: false,
+        boardType: _selectedBoardType!, // ✅ BoardType enum 값 전달
       );
 
-      Provider.of<PostProvider>(context, listen: false).addPost(newPost);
-      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('게시물이 ${_selectedBoardType!.displayName}에 작성되었습니다.')),
+      );
+      Navigator.of(context).pop();
     }
   }
 
@@ -64,89 +92,122 @@ class _WritePostScreenState extends State<WritePostScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('새 글 작성'),
+        backgroundColor: const Color(0xFF1E8854),
+        foregroundColor: Colors.white, // 텍스트 색상을 흰색으로
         actions: [
           TextButton(
             onPressed: _submitPost,
-            child: const Text('게시'),
+            child: const Text('게시', style: TextStyle(color: Colors.white, fontSize: 16)),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // 드롭다운 정렬을 위해 추가
-          children: [
-            // ✅ 0. 게시판 선택 드롭다운
-            DropdownButton<String>(
-              value: _selectedBoard,
-              icon: const Icon(Icons.arrow_downward),
-              elevation: 16,
-              style: const TextStyle(color: Colors.deepPurple, fontSize: 16),
-              underline: Container(
-                height: 2,
-                color: Colors.deepPurpleAccent,
+      body: Form(
+        key: _formKey, // 폼 키 적용
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ✅ DropdownButtonFormField로 변경하고 BoardType 사용
+              DropdownButtonFormField<BoardType>(
+                decoration: const InputDecoration(
+                  labelText: '게시판 선택',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                ),
+                value: _selectedBoardType,
+                icon: const Icon(Icons.arrow_downward, color: Color(0xFF1E8854)),
+                elevation: 16,
+                style: const TextStyle(color: Colors.black, fontSize: 16),
+                items: _boardOptions.map((board) {
+                  return DropdownMenuItem(
+                    value: board,
+                    child: Text(board.displayName), // BoardType.displayName 사용
+                  );
+                }).toList(),
+                onChanged: (BoardType? newValue) {
+                  setState(() {
+                    _selectedBoardType = newValue;
+                  });
+                },
+                validator: (value) {
+                  if (value == null) {
+                    return '게시판을 선택해주세요.';
+                  }
+                  return null;
+                },
               ),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedBoard = newValue!;
-                });
-              },
-              items: _boardOptions.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 16),
 
-            // 1. 제목 입력 필드
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                hintText: '제목을 입력하세요',
-                border: InputBorder.none,
+              // 제목 입력 필드
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  hintText: '제목을 입력하세요 (선택)',
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                keyboardType: TextInputType.text,
+                textCapitalization: TextCapitalization.sentences,
               ),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-              keyboardType: TextInputType.text,
-              textCapitalization: TextCapitalization.sentences,
-            ),
-            const Divider(height: 1), // 구분선
+              const Divider(height: 1),
 
-            // 2. 내용 입력 필드
-            TextField(
-              controller: _contentController,
-              decoration: const InputDecoration(
-                hintText: '내용을 입력하세요',
-                border: InputBorder.none,
+              // 내용 입력 필드
+              TextFormField(
+                controller: _contentController,
+                decoration: const InputDecoration(
+                  hintText: '내용을 입력하세요',
+                  border: InputBorder.none,
+                ),
+                minLines: 10,
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return '내용은 필수 입력 사항입니다.';
+                  }
+                  return null;
+                },
               ),
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-            ),
 
-            if (_imagePath != null)
-              Image.file(File(_imagePath!), fit: BoxFit.cover),
-          ],
+              if (_imagePath != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: Image.file(
+                    File(_imagePath!),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-      bottomNavigationBar: Row(
-        children: [
-          IconButton(
-            onPressed: _getImage,
-            icon: const Icon(Icons.photo_library),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _imagePath = null;
-              });
-            },
-            icon: const Icon(Icons.delete),
-          ),
-        ],
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.grey, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: _getImage,
+              icon: const Icon(Icons.photo_library, color: Color(0xFF1E8854)),
+            ),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _imagePath = null;
+                });
+              },
+              icon: const Icon(Icons.delete, color: Colors.red),
+            ),
+            const Spacer(),
+          ],
+        ),
       ),
     );
   }
