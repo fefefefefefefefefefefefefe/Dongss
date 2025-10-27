@@ -1,13 +1,16 @@
 // lib/screens/home_screen.dart (전체 덮어쓰기)
 
-import 'package:flutter/material.dart'; // 💡 이 줄이 꼭 있어야 합니다.
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dong_story/providers/post_provider.dart';
-import 'package:dong_story/screens/community_screen.dart';
+import 'package:dong_story/providers/auth_provider.dart';
+import 'package:dong_story/models/post.dart';
+import 'package:dong_story/screens/community_screen.dart' show CommunityScreen;
 import 'package:dong_story/screens/profile_screen.dart';
 import 'package:dong_story/screens/chat_list_screen.dart';
 import 'package:dong_story/screens/explore_screen.dart';
 import 'package:dong_story/screens/home_feed_post.dart';
+import 'package:dong_story/screens/comment_screen.dart'; // 💡 [추가] 댓글 화면 임포트
 import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
@@ -20,11 +23,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    _FeedScreen(),
-    ExploreScreen(),
-    CommunityScreen(),
-    ProfileScreen(),
+  final List<Widget> _widgetOptions = <Widget>[
+    const _FeedScreen(),
+    const ExploreScreen(),
+    const CommunityScreen(),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -81,7 +84,7 @@ class _FeedScreen extends StatelessWidget {
         .toList();
 
     return Scaffold(
-      appBar: AppBar( // ✅ 올바른 AppBar 사용
+      appBar: AppBar(
         title: const Text(
           'Dong Story',
           style: TextStyle(
@@ -91,7 +94,7 @@ class _FeedScreen extends StatelessWidget {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [ // ✅ 'actions' 파라미터가 정확하게 정의되어 있습니다.
+        actions: [
           IconButton(
             icon: const Icon(Icons.edit_note, color: Color(0xFF1E8854)),
             onPressed: () {
@@ -131,33 +134,78 @@ class _FeedScreen extends StatelessWidget {
         itemCount: feedPosts.length,
         itemBuilder: (context, index) {
           final post = feedPosts[index];
-          return _FeedPostCard(
-            author: post.author,
-            content: post.content,
-            imagePath: post.imagePath,
-            timestamp: post.timestamp,
-          );
+          return _FeedPostCard(post: post);
         },
       ),
     );
   }
 }
 
-class _FeedPostCard extends StatelessWidget {
-  final String author;
-  final String content;
-  final String? imagePath;
-  final DateTime timestamp;
+class _FeedPostCard extends StatefulWidget {
+  final Post post;
 
   const _FeedPostCard({
-    required this.author,
-    required this.content,
-    this.imagePath,
-    required this.timestamp,
+    super.key,
+    required this.post,
   });
 
   @override
+  State<_FeedPostCard> createState() => _FeedPostCardState();
+}
+
+class _FeedPostCardState extends State<_FeedPostCard> {
+
+  late bool _isLiked;
+
+  @override
+  void initState() {
+    super.initState();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _isLiked = authProvider.hasLiked(widget.post.id);
+  }
+
+  void _toggleLike(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
+    final userId = authProvider.loggedInUser?.id;
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인해야 좋아요를 누를 수 있습니다.')),
+      );
+      return;
+    }
+
+    final bool isLiking = authProvider.toggleLikeStatus(widget.post.id);
+
+    setState(() {
+      _isLiked = isLiking;
+    });
+
+    postProvider.toggleLike(widget.post.id, isAdding: isLiking);
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return '방금 전';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}분 전';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}시간 전';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}일 전';
+    } else {
+      return '${timestamp.year}.${timestamp.month}.${timestamp.day}';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final post = widget.post; // Post 객체 사용
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
       elevation: 1.5,
@@ -177,11 +225,11 @@ class _FeedPostCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      author,
+                      post.author,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '${timestamp.hour}시 ${timestamp.minute}분',
+                      _formatTime(post.createdAt),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
@@ -190,26 +238,71 @@ class _FeedPostCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            Text(content, style: const TextStyle(fontSize: 15)),
+            Text(post.content, style: const TextStyle(fontSize: 15)),
             const SizedBox(height: 10),
 
-            if (imagePath != null)
+            if (post.imagePath != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
                 child: Image.file(
-                  File(imagePath!),
+                  File(post.imagePath!),
                   fit: BoxFit.cover,
                   width: double.infinity,
                 ),
               ),
 
             const Divider(height: 20),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Icon(Icons.favorite_border, size: 20),
-                Icon(Icons.comment_outlined, size: 20),
-                Icon(Icons.share, size: 20),
+                // 💡 좋아요 버튼
+                GestureDetector(
+                  onTap: () => _toggleLike(context),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: _isLiked ? Colors.red : Colors.black54,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 4),
+                      Consumer<PostProvider>(
+                        builder: (context, provider, child) {
+                          final currentPost = provider.posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+                          return Text('${currentPost.likes}');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 💡 [수정] 댓글 버튼: CommentScreen으로 이동
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CommentScreen(post: post), // Post 객체 전달
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      const Icon(Icons.comment_outlined, size: 20, color: Colors.black54),
+                      const SizedBox(width: 4),
+                      // 💡 PostProvider를 통해 최신 댓글 수 표시
+                      Consumer<PostProvider>(
+                        builder: (context, provider, child) {
+                          final currentPost = provider.posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+                          return Text('${currentPost.comments}');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 공유 버튼
+                const Icon(Icons.share, size: 20, color: Colors.black54),
               ],
             ),
           ],
