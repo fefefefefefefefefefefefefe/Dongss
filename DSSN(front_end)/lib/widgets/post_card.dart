@@ -114,7 +114,7 @@ class _PostCardState extends State<PostCard> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => CommentScreen(), // ✅ `const` 제거
+                      builder: (context) => CommentScreen(post: widget.post), // ✅ `const` 제거
                     ),
                   );
                 },
