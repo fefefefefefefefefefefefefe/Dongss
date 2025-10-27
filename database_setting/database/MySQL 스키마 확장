@@ -11,3 +11,9 @@ ALTER TABLE `user`
   ADD COLUMN email_verified TINYINT(1)   NOT NULL DEFAULT 0 AFTER university,
   ADD COLUMN verification_token   VARCHAR(64)  NULL AFTER email_verified,
   ADD COLUMN verification_sent_at DATETIME     NULL AFTER verification_token;
+  ADD COLUMN `token_version` INT NOT NULL DEFAULT 0;
+
+토큰 버전
+
+ALTER TABLE `user`
+ADD COLUMN `token_version` INT NOT NULL DEFAULT 0;
