@@ -17,3 +17,19 @@ ALTER TABLE `user`
 
 ALTER TABLE `user`
 ADD COLUMN `token_version` INT NOT NULL DEFAULT 0;
+
+refresh_token DB 깔기
+
+CREATE TABLE `refresh_token` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `token_hash` VARCHAR(128) NOT NULL,
+  `created_at` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` DATETIME(0) NOT NULL,
+  `revoked_at` DATETIME(0) NULL,
+  `replaced_by` VARCHAR(128) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `refresh_token_token_hash_key` (`token_hash`),
+  KEY `idx_rtoken_user` (`user_id`),
+  CONSTRAINT `fk_rtoken_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
