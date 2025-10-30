@@ -1,0 +1,413 @@
+-- =====================================================================
+-- DongStory (DSSN) - Full MySQL Schema (utf8mb4 / InnoDB)
+-- =====================================================================
+
+CREATE DATABASE IF NOT EXISTS dongstory_dev2
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+SET NAMES utf8mb4;
+SET time_zone = '+00:00';
+
+Use dongstory_dev2;
+
+-- ---------------------------------------------------------------------
+-- USER
+-- ---------------------------------------------------------------------
+CREATE TABLE `user` (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  username          VARCHAR(191) NOT NULL UNIQUE,
+  `password`        VARCHAR(191) NOT NULL,
+  email             VARCHAR(191) NOT NULL UNIQUE,
+  student_no        VARCHAR(32)  NOT NULL UNIQUE,
+  name              VARCHAR(191),
+  nickname          VARCHAR(191) UNIQUE,
+  profile_img       VARCHAR(512),
+  bio               TEXT,
+  gender            ENUM('male','female') NULL,
+  department        VARCHAR(191),
+  birthday          DATE,
+  university        VARCHAR(191) NOT NULL DEFAULT '동서울대학교',
+  email_verified    TINYINT(1)   NOT NULL DEFAULT 0,
+  verification_token   VARCHAR(64)  NULL,
+  verification_sent_at DATETIME     NULL,
+  token_version     INT NOT NULL DEFAULT 0,
+  status            ENUM('active','inactive','suspended','deleted') NOT NULL DEFAULT 'active',
+  website           VARCHAR(255),
+  `location`        VARCHAR(255),
+  oauth_provider    VARCHAR(100),
+  oauth_id          VARCHAR(191),
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- EmailVerification (코드 저장)  ※ Prisma 모델 맵핑 케이스를 고려해 원문 표기 유지
+-- ---------------------------------------------------------------------
+CREATE TABLE EmailVerification (
+  id         INT          NOT NULL AUTO_INCREMENT,
+  email      VARCHAR(255) NOT NULL,
+  code       VARCHAR(6)   NOT NULL,
+  purpose    VARCHAR(50)  NOT NULL,        -- 'signup' 등
+  expiresAt  DATETIME(0)  NOT NULL,
+  consumedAt DATETIME(0)  NULL,
+  userId     INT          NULL,
+  PRIMARY KEY (id),
+  KEY idx_emailverif_email_purpose_exp (email, purpose, expiresAt),
+  CONSTRAINT fk_emailverif_user
+    FOREIGN KEY (userId) REFERENCES `user`(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- REFRESH TOKEN
+-- ---------------------------------------------------------------------
+CREATE TABLE `refresh_token` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `token_hash` VARCHAR(128) NOT NULL,
+  `created_at` DATETIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` DATETIME(0) NOT NULL,
+  `revoked_at` DATETIME(0) NULL,
+  `replaced_by` VARCHAR(128) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `refresh_token_token_hash_key` (`token_hash`),
+  KEY `idx_rtoken_user` (`user_id`),
+  CONSTRAINT `fk_rtoken_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- COMMUNITY
+-- ---------------------------------------------------------------------
+CREATE TABLE community (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  name        VARCHAR(191) NOT NULL UNIQUE,
+  description VARCHAR(512),
+  admin_id    INT,
+  is_private  TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_community_admin
+    FOREIGN KEY (admin_id) REFERENCES `user`(id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 커뮤니티 멤버십 (ensureMembership, uq_cmember 사용)
+CREATE TABLE community_member (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  community_id  INT NOT NULL,
+  user_id       INT NOT NULL,
+  role          VARCHAR(20) NOT NULL DEFAULT 'MEMBER',
+  joined_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  left_at       DATETIME NULL,
+  UNIQUE KEY uq_cmember (community_id, user_id),
+  KEY idx_cmember_user (user_id),
+  CONSTRAINT fk_cmember_comm FOREIGN KEY (community_id) REFERENCES community(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_cmember_user FOREIGN KEY (user_id)     REFERENCES `user`(id)    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- EMOJI / TAG
+-- ---------------------------------------------------------------------
+CREATE TABLE emoji (
+  id   INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE tag (
+  id   INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- POST
+-- ---------------------------------------------------------------------
+CREATE TABLE post (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  user_id        INT NOT NULL,
+  community_id   INT NOT NULL,
+  title          VARCHAR(255),
+  content        MEDIUMTEXT,
+  category       VARCHAR(16) NULL,  -- 자유/질문/정보 등
+  is_anonymous   TINYINT(1) NOT NULL DEFAULT 0,
+  visibility     ENUM('public','followers','private') NOT NULL DEFAULT 'public',
+  view_count     INT NOT NULL DEFAULT 0,
+  comment_count  INT NOT NULL DEFAULT 0,
+  is_blinded     TINYINT(1) NOT NULL DEFAULT 0,
+  is_deleted     TINYINT(1) NOT NULL DEFAULT 0,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_post_user      FOREIGN KEY (user_id)      REFERENCES `user`(id)      ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_post_community FOREIGN KEY (community_id) REFERENCES community(id)   ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_post_user_created (user_id, created_at),
+  INDEX idx_post_community_created (community_id, created_at),
+  INDEX idx_post_comm_cat_created (community_id, category, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 파일 메타 포함(코드에서 mime/size/width/height/storage/checksum 사용)
+CREATE TABLE post_file (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  post_id      INT NOT NULL,
+  file_url     VARCHAR(512),
+  is_thumbnail TINYINT(1) NOT NULL DEFAULT 0,
+  mime         VARCHAR(100) NULL,
+  size_bytes   BIGINT NULL,
+  width        INT NULL,
+  height       INT NULL,
+  storage      VARCHAR(50) NULL,     -- 'local' 등
+  checksum     VARCHAR(128) NULL,
+  uploaded_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_postfile_post FOREIGN KEY (post_id) REFERENCES post(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_postfile_post (post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE post_tag (
+  post_id INT NOT NULL,
+  tag_id  INT NOT NULL,
+  PRIMARY KEY (post_id, tag_id),
+  CONSTRAINT fk_posttag_post FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_posttag_tag  FOREIGN KEY (tag_id)  REFERENCES tag(id)  ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_posttag_tag (tag_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- FOLLOW / BOOKMARK / REPOST / LIKE / REACTION
+-- ---------------------------------------------------------------------
+CREATE TABLE follow (
+  follower_id  INT NOT NULL,
+  following_id INT NOT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (follower_id, following_id),
+  CONSTRAINT fk_follow_follower  FOREIGN KEY (follower_id)  REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_follow_following FOREIGN KEY (following_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_follow_following (following_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE bookmark (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT NOT NULL,
+  post_id    INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_bookmark_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_bookmark_post FOREIGN KEY (post_id) REFERENCES post(id)      ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY uq_bookmark (user_id, post_id),
+  INDEX idx_bookmark_user (user_id),
+  INDEX idx_bookmark_post (post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE repost (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT NOT NULL,
+  post_id    INT NOT NULL,
+  quote      TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_repost_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_repost_post FOREIGN KEY (post_id) REFERENCES post(id)      ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY uq_repost (user_id, post_id),
+  INDEX idx_repost_user (user_id),
+  INDEX idx_repost_post (post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE post_like (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  post_id    INT NOT NULL,
+  user_id    INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_postlike_post FOREIGN KEY (post_id) REFERENCES post(id)   ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_postlike_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY unique_post_like (post_id, user_id),
+  INDEX idx_postlike_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE post_reaction (
+  post_id    INT NOT NULL,
+  user_id    INT NOT NULL,
+  emoji_id   INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id, user_id, emoji_id),
+  CONSTRAINT fk_preaction_post  FOREIGN KEY (post_id)  REFERENCES post(id)   ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_preaction_user  FOREIGN KEY (user_id)  REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_preaction_emoji FOREIGN KEY (emoji_id) REFERENCES emoji(id)  ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_preaction_user (user_id),
+  INDEX idx_preaction_emoji (emoji_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- COMMENT
+-- ---------------------------------------------------------------------
+CREATE TABLE comment (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  post_id      INT NOT NULL,
+  user_id      INT NOT NULL,
+  content      MEDIUMTEXT,
+  parent_id    INT NULL,
+  is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+  is_blinded   TINYINT(1) NOT NULL DEFAULT 0,
+  is_deleted   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_comment_post   FOREIGN KEY (post_id)  REFERENCES post(id)   ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_comment_user   FOREIGN KEY (user_id)  REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_comment_parent FOREIGN KEY (parent_id) REFERENCES comment(id) ON DELETE SET NULL ON UPDATE CASCADE,
+  INDEX idx_comment_post_created (post_id, created_at),
+  INDEX idx_comment_user_created (user_id, created_at),
+  INDEX idx_comment_parent (parent_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE comment_like (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  comment_id INT NOT NULL,
+  user_id    INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_commentlike_comment FOREIGN KEY (comment_id) REFERENCES comment(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_commentlike_user    FOREIGN KEY (user_id)    REFERENCES `user`(id)  ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY unique_comment_like (comment_id, user_id),
+  INDEX idx_commentlike_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- CHAT
+-- ---------------------------------------------------------------------
+CREATE TABLE chat_room (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  title      VARCHAR(191),
+  is_group   TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE chat_room_user (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id INT NOT NULL,
+  user_id     INT NOT NULL,
+  left_at     DATETIME NULL,
+  CONSTRAINT fk_croomuser_room FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_croomuser_user FOREIGN KEY (user_id)     REFERENCES `user`(id)    ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY uq_chatroom_user (chatroom_id, user_id),
+  INDEX idx_croomuser_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE chat_message (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  chatroom_id INT NOT NULL,
+  sender_id   INT NOT NULL,
+  message     MEDIUMTEXT,
+  file_url    VARCHAR(512),
+  is_deleted  TINYINT(1) NOT NULL DEFAULT 0,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cmsg_room   FOREIGN KEY (chatroom_id) REFERENCES chat_room(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_cmsg_sender FOREIGN KEY (sender_id)   REFERENCES `user`(id)    ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_cmsg_room_created (chatroom_id, created_at),
+  INDEX idx_cmsg_sender (sender_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- NOTIFICATION
+-- ---------------------------------------------------------------------
+CREATE TABLE notification (
+  id                 INT AUTO_INCREMENT PRIMARY KEY,
+  user_id            INT NOT NULL,
+  `type`             VARCHAR(100) NOT NULL,
+  message            VARCHAR(512),
+  is_read            TINYINT(1) NOT NULL DEFAULT 0,
+  source_user_id     INT NULL,
+  related_post_id    INT NULL,
+  related_comment_id INT NULL,
+  chat_message_id    INT NULL,
+  chat_room_id       INT NULL,
+  created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_notif_user        FOREIGN KEY (user_id)            REFERENCES `user`(id)       ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_notif_source_user FOREIGN KEY (source_user_id)     REFERENCES `user`(id)       ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_notif_post        FOREIGN KEY (related_post_id)    REFERENCES post(id)         ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_notif_comment     FOREIGN KEY (related_comment_id) REFERENCES comment(id)      ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_notif_chatmsg     FOREIGN KEY (chat_message_id)    REFERENCES chat_message(id) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_notif_chatroom    FOREIGN KEY (chat_room_id)       REFERENCES chat_room(id)    ON DELETE SET NULL ON UPDATE CASCADE,
+  INDEX idx_notif_user_read_created (user_id, is_read, created_at),
+  INDEX idx_notif_source_user (source_user_id),
+  INDEX idx_notif_post (related_post_id),
+  INDEX idx_notif_comment (related_comment_id),
+  INDEX idx_notif_chatmsg (chat_message_id),
+  INDEX idx_notif_chatroom (chat_room_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- REPORT / USER_BLOCK / PROFILE_VISIT / SEARCH_HISTORY
+-- ---------------------------------------------------------------------
+CREATE TABLE report (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  reporter_id INT NOT NULL,
+  target_type ENUM('user','post','comment','file','chat_message','community') NOT NULL,
+  target_id   INT NOT NULL,
+  reason      VARCHAR(512),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_report_reporter FOREIGN KEY (reporter_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_report_target (target_type, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE user_block (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  user_id         INT NOT NULL,
+  blocked_user_id INT NOT NULL,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ub_blocker FOREIGN KEY (user_id)         REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_ub_blocked FOREIGN KEY (blocked_user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY unique_block (user_id, blocked_user_id),
+  INDEX idx_ub_blocked (blocked_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE profile_visit (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  visitor_id      INT NOT NULL,
+  profile_user_id INT NOT NULL,
+  visited_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pv_visitor FOREIGN KEY (visitor_id)      REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pv_visited FOREIGN KEY (profile_user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_pv_profile_time (profile_user_id, visited_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE search_history (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT NOT NULL,
+  keyword     VARCHAR(255) NOT NULL,
+  searched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sh_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_sh_user_time (user_id, searched_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------
+-- FEED_CACHE / FILE_REPORT
+-- ---------------------------------------------------------------------
+CREATE TABLE feed_cache (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT NOT NULL,
+  post_id    INT NOT NULL,
+  score      FLOAT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_fc_user FOREIGN KEY (user_id) REFERENCES `user`(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_fc_post FOREIGN KEY (post_id) REFERENCES post(id)  ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_fc_user_score_time (user_id, score, created_at),
+  INDEX idx_fc_post (post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE file_report (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  file_id     INT NOT NULL,
+  reporter_id INT NOT NULL,
+  reason      VARCHAR(512),
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_freport_file     FOREIGN KEY (file_id)     REFERENCES post_file(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_freport_reporter FOREIGN KEY (reporter_id) REFERENCES `user`(id)    ON DELETE CASCADE ON UPDATE CASCADE,
+  INDEX idx_freport_file (file_id),
+  INDEX idx_freport_reporter (reporter_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1) 컬럼 추가
+ALTER TABLE chat_room_user
+  ADD COLUMN joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  AFTER user_id;
+
+-- 2) (선택) 조회 최적화 인덱스
+CREATE INDEX idx_croomuser_room_joined
+  ON chat_room_user (chatroom_id, joined_at);
+
+-- =====================================================================
+-- END
+-- =====================================================================
