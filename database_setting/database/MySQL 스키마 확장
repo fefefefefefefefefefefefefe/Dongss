@@ -33,3 +33,19 @@ CREATE TABLE `refresh_token` (
   KEY `idx_rtoken_user` (`user_id`),
   CONSTRAINT `fk_rtoken_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1) 멤버 역할 컬럼
+ALTER TABLE community_member
+  ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'MEMBER';
+
+-- 2) 게시글 카테고리/삭제 플래그
+ALTER TABLE post
+  ADD COLUMN category VARCHAR(16) NULL AFTER content,
+  ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0 AFTER category;
+
+-- 3) 커뮤니티 탭 조회 최적화 인덱스
+CREATE INDEX idx_post_comm_cat_created
+  ON post (community_id, category, created_at);
+
+-- (관계명 변경은 Prisma 레벨의 모델 필드명만 바뀐 것이라 DB 스키마에는 영향 없음)
+
