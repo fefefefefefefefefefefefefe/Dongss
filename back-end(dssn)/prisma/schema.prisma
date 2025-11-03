@@ -1,0 +1,452 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id                                                Int                 @id @default(autoincrement())
+  username                                          String              @unique(map: "username")
+  password                                          String
+  email                                             String              @unique(map: "email")
+  student_no                                        String              @unique(map: "student_no") @db.VarChar(32)
+  name                                              String?
+  nickname                                          String?             @unique(map: "nickname")
+  profile_img                                       String?             @db.VarChar(512)
+  bio                                               String?             @db.Text
+  gender                                            user_gender?
+  department                                        String?
+  birthday                                          DateTime?           @db.Date
+  university                                        String              @default("동서울대학교")
+  email_verified                                    Boolean             @default(false)
+  verification_token                                String?             @db.VarChar(64)
+  verification_sent_at                              DateTime?           @db.DateTime(0)
+  token_version                                     Int                 @default(0)
+  status                                            user_status         @default(active)
+  website                                           String?             @db.VarChar(255)
+  location                                          String?             @db.VarChar(255)
+  oauth_provider                                    String?             @db.VarChar(100)
+  oauth_id                                          String?
+  created_at                                        DateTime            @default(now()) @db.DateTime(0)
+  bookmarks                                         bookmark[]
+  chat_messages                                     chat_message[]      @relation("msg_sender")
+  chat_memberships                                  chat_room_user[]
+  comments                                          comment[]
+  comment_likes                                     comment_like[]
+  communities                                       community[]         @relation("community_admin")
+  memberships                                       community_member[]
+  emailverification                                 emailverification[]
+  feed_cache                                        feed_cache[]
+  file_report                                       file_report[]
+  followers                                         follow[]            @relation("followers")
+  following                                         follow[]            @relation("following")
+  notifications_asSource                            notification[]      @relation("SourceUserNotifications")
+  notifications                                     notification[]
+  posts                                             post[]
+  post_likes                                        post_like[]
+  post_reaction                                     post_reaction[]
+  profile_visit_profile_visit_profile_user_idTouser profile_visit[]     @relation("profile_visit_profile_user_idTouser")
+  profile_visit_profile_visit_visitor_idTouser      profile_visit[]     @relation("profile_visit_visitor_idTouser")
+  refresh_tokens                                    refresh_token[]     @relation("user_refresh_tokens")
+  report                                            report[]
+  reposts                                           repost[]
+  search_history                                    search_history[]
+  user_block_user_block_blocked_user_idTouser       user_block[]        @relation("user_block_blocked_user_idTouser")
+  user_block_user_block_user_idTouser               user_block[]        @relation("user_block_user_idTouser")
+}
+
+model refresh_token {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  token_hash  String    @unique @db.VarChar(128)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+  expires_at  DateTime  @db.DateTime(0)
+  revoked_at  DateTime? @db.DateTime(0)
+  replaced_by String?   @db.VarChar(128)
+  user        user      @relation("user_refresh_tokens", fields: [user_id], references: [id], onDelete: Cascade, map: "fk_rtoken_user")
+
+  @@index([user_id], map: "idx_rtoken_user")
+}
+
+model follow {
+  follower_id  Int
+  following_id Int
+  created_at   DateTime @default(now()) @db.DateTime(0)
+  follower     user     @relation("followers", fields: [follower_id], references: [id], onDelete: Cascade, map: "fk_follow_follower")
+  following    user     @relation("following", fields: [following_id], references: [id], onDelete: Cascade, map: "fk_follow_following")
+
+  @@id([follower_id, following_id])
+  @@index([following_id], map: "idx_follow_following")
+}
+
+model community {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique(map: "name")
+  description String?            @db.VarChar(512)
+  admin_id    Int?
+  is_private  Boolean            @default(false)
+  created_at  DateTime           @default(now()) @db.DateTime(0)
+  admin       user?              @relation("community_admin", fields: [admin_id], references: [id], map: "fk_community_admin")
+  members     community_member[]
+  posts       post[]
+
+  @@index([admin_id], map: "fk_community_admin")
+}
+
+model community_member {
+  id           Int       @id @default(autoincrement())
+  community_id Int
+  user_id      Int
+  role         String    @default("MEMBER") @db.VarChar(20)
+  joined_at    DateTime  @default(now()) @db.DateTime(0)
+  left_at      DateTime? @db.DateTime(0)
+  community    community @relation(fields: [community_id], references: [id], onDelete: Cascade, map: "fk_cmember_community")
+  user         user      @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_cmember_user")
+
+  @@unique([community_id, user_id], map: "uq_cmember")
+  @@index([user_id], map: "idx_cmember_user")
+}
+
+model post {
+  id            Int             @id @default(autoincrement())
+  user_id       Int
+  community_id  Int
+  title         String?         @db.VarChar(255)
+  content       String?         @db.MediumText
+  category      String?         @db.VarChar(16)
+  is_anonymous  Boolean         @default(false)
+  visibility    post_visibility @default(public)
+  view_count    Int             @default(0)
+  comment_count Int             @default(0)
+  is_blinded    Boolean         @default(false)
+  is_deleted    Boolean         @default(false)
+  created_at    DateTime        @default(now()) @db.DateTime(0)
+  updated_at    DateTime?       @updatedAt @db.DateTime(0)
+  bookmark      bookmark[]
+  comment       comment[]
+  feed_cache    feed_cache[]
+  notifications notification[]
+  community     community       @relation(fields: [community_id], references: [id], onDelete: Cascade, map: "fk_post_community")
+  user          user            @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_post_user")
+  post_file     post_file[]
+  post_like     post_like[]
+  post_reaction post_reaction[]
+  post_tag      post_tag[]
+  repost        repost[]
+
+  @@index([user_id, created_at], map: "idx_post_user_created")
+  @@index([community_id, created_at], map: "idx_post_community_created")
+  @@index([community_id, category, created_at], map: "idx_post_comm_cat_created")
+}
+
+model post_file {
+  id           Int           @id @default(autoincrement())
+  post_id      Int
+  file_url     String?       @db.VarChar(512)
+  is_thumbnail Boolean       @default(false)
+  mime         String?       @db.VarChar(100)
+  size_bytes   BigInt?
+  width        Int?
+  height       Int?
+  storage      String?       @db.VarChar(50)
+  checksum     String?       @db.VarChar(128)
+  uploaded_at  DateTime      @default(now()) @db.DateTime(0)
+  file_report  file_report[]
+  post         post          @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_pfile_post")
+
+  @@index([post_id], map: "idx_postfile_post")
+}
+
+model post_like {
+  id         Int      @id @default(autoincrement())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now()) @db.DateTime(0)
+  post       post     @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_plike_post")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_plike_user")
+
+  @@unique([post_id, user_id], map: "unique_post_like")
+  @@index([user_id], map: "idx_postlike_user")
+}
+
+model bookmark {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  post_id    Int
+  created_at DateTime @default(now()) @db.DateTime(0)
+  post       post     @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_bm_post")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_bm_user")
+
+  @@unique([user_id, post_id], map: "uq_bookmark")
+  @@index([post_id], map: "idx_bookmark_post")
+  @@index([user_id], map: "idx_bookmark_user")
+}
+
+model repost {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  post_id    Int
+  quote      String?  @db.Text
+  created_at DateTime @default(now()) @db.DateTime(0)
+  post       post     @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_repost_post")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_repost_user")
+
+  @@unique([user_id, post_id], map: "uq_repost")
+  @@index([post_id], map: "idx_repost_post")
+  @@index([user_id], map: "idx_repost_user")
+}
+
+model comment {
+  id            Int            @id @default(autoincrement())
+  post_id       Int
+  user_id       Int
+  content       String?        @db.MediumText
+  parent_id     Int?
+  is_anonymous  Boolean        @default(false)
+  is_blinded    Boolean        @default(false)
+  is_deleted    Boolean        @default(false)
+  created_at    DateTime       @default(now()) @db.DateTime(0)
+  updated_at    DateTime?      @db.DateTime(0)
+  parent        comment?       @relation("CommentToReplies", fields: [parent_id], references: [id], map: "fk_comment_parent")
+  replies       comment[]      @relation("CommentToReplies")
+  post          post           @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_comment_post")
+  user          user           @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_comment_user")
+  likes         comment_like[]
+  notifications notification[]
+
+  @@index([post_id, created_at], map: "idx_comment_post_created")
+  @@index([parent_id], map: "idx_comment_parent")
+  @@index([user_id, created_at], map: "idx_comment_user_created")
+}
+
+model comment_like {
+  id         Int      @id @default(autoincrement())
+  comment_id Int
+  user_id    Int
+  created_at DateTime @default(now()) @db.DateTime(0)
+  comment    comment  @relation(fields: [comment_id], references: [id], onDelete: Cascade, map: "fk_clike_comment")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_clike_user")
+
+  @@unique([comment_id, user_id], map: "unique_comment_like")
+  @@index([user_id], map: "idx_commentlike_user")
+}
+
+model tag {
+  id       Int        @id @default(autoincrement())
+  name     String     @unique(map: "name")
+  post_tag post_tag[]
+}
+
+model post_tag {
+  post_id Int
+  tag_id  Int
+  post    post @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_ptag_post")
+  tag     tag  @relation(fields: [tag_id], references: [id], onDelete: Cascade, map: "fk_ptag_tag")
+
+  @@id([post_id, tag_id])
+  @@index([tag_id], map: "idx_posttag_tag")
+}
+
+model chat_room {
+  id         Int              @id @default(autoincrement())
+  title      String?
+  is_group   Boolean          @default(false)
+  created_at DateTime         @default(now()) @db.DateTime(0)
+  messages   chat_message[]
+  users      chat_room_user[]
+  notices    notification[]
+}
+
+model chat_room_user {
+  id          Int       @id @default(autoincrement())
+  chatroom_id Int
+  user_id     Int
+  joined_at   DateTime  @default(now()) @db.DateTime(0)
+  left_at     DateTime? @db.DateTime(0)
+  room        chat_room @relation(fields: [chatroom_id], references: [id], onDelete: Cascade, map: "fk_croomuser_room")
+  user        user      @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_croomuser_user")
+
+  @@unique([chatroom_id, user_id], map: "uq_chatroom_user")
+  @@index([user_id], map: "idx_croomuser_user")
+  @@index([chatroom_id, joined_at], map: "idx_croomuser_room_joined")
+}
+
+model chat_message {
+  id            Int            @id @default(autoincrement())
+  chatroom_id   Int
+  sender_id     Int
+  message       String?        @db.MediumText
+  file_url      String?        @db.VarChar(512)
+  is_deleted    Boolean        @default(false)
+  created_at    DateTime       @default(now()) @db.DateTime(0)
+  chat_room     chat_room      @relation(fields: [chatroom_id], references: [id], onDelete: Cascade, map: "fk_cmsg_room")
+  user          user           @relation("msg_sender", fields: [sender_id], references: [id], onDelete: Cascade, map: "fk_cmsg_sender")
+  notifications notification[]
+
+  @@index([chatroom_id, created_at], map: "idx_cmsg_room_created")
+  @@index([sender_id], map: "idx_cmsg_sender")
+}
+
+model notification {
+  id                 Int           @id @default(autoincrement())
+  user_id            Int
+  type               String        @db.VarChar(100)
+  message            String?       @db.VarChar(512)
+  is_read            Boolean       @default(false)
+  source_user_id     Int?
+  related_post_id    Int?
+  related_comment_id Int?
+  chat_message_id    Int?
+  chat_room_id       Int?
+  created_at         DateTime      @default(now()) @db.DateTime(0)
+  chatMessage        chat_message? @relation(fields: [chat_message_id], references: [id], map: "fk_notify_cmsg")
+  chatRoom           chat_room?    @relation(fields: [chat_room_id], references: [id], map: "fk_notify_croom")
+  comment            comment?      @relation(fields: [related_comment_id], references: [id], map: "fk_notify_comment")
+  post               post?         @relation(fields: [related_post_id], references: [id], map: "fk_notify_post")
+  source_user        user?         @relation("SourceUserNotifications", fields: [source_user_id], references: [id], map: "fk_notify_source_user")
+  user               user          @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_notify_user")
+
+  @@index([chat_message_id], map: "idx_notif_chatmsg")
+  @@index([chat_room_id], map: "idx_notif_chatroom")
+  @@index([related_comment_id], map: "idx_notif_comment")
+  @@index([related_post_id], map: "idx_notif_post")
+  @@index([source_user_id], map: "idx_notif_source_user")
+  @@index([user_id, is_read, created_at], map: "idx_notif_user_read_created")
+}
+
+model emailverification {
+  id         Int       @id @default(autoincrement())
+  email      String    @db.VarChar(255)
+  code       String    @db.VarChar(6)
+  purpose    String    @db.VarChar(50)
+  expiresAt  DateTime  @db.DateTime(0)
+  consumedAt DateTime? @db.DateTime(0)
+  userId     Int?
+  user       user?     @relation(fields: [userId], references: [id], onDelete: Cascade, map: "fk_emailverif_user")
+
+  @@index([userId], map: "fk_emailverif_user")
+  @@index([email, purpose, expiresAt], map: "idx_emailverif_email_purpose_exp")
+}
+
+model emoji {
+  id            Int             @id @default(autoincrement())
+  name          String          @unique(map: "name")
+  post_reaction post_reaction[]
+}
+
+model feed_cache {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  post_id    Int
+  score      Float    @db.Float
+  created_at DateTime @default(now()) @db.DateTime(0)
+  post       post     @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_fc_post")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_fc_user")
+
+  @@index([post_id], map: "idx_fc_post")
+  @@index([user_id, score, created_at], map: "idx_fc_user_score_time")
+}
+
+model file_report {
+  id          Int       @id @default(autoincrement())
+  file_id     Int
+  reporter_id Int
+  reason      String?   @db.VarChar(512)
+  created_at  DateTime  @default(now()) @db.DateTime(0)
+  post_file   post_file @relation(fields: [file_id], references: [id], onDelete: Cascade, map: "fk_freport_file")
+  user        user      @relation(fields: [reporter_id], references: [id], onDelete: Cascade, map: "fk_freport_reporter")
+
+  @@index([file_id], map: "idx_freport_file")
+  @@index([reporter_id], map: "idx_freport_reporter")
+}
+
+model post_reaction {
+  post_id    Int
+  user_id    Int
+  emoji_id   Int
+  created_at DateTime @default(now()) @db.DateTime(0)
+  emoji      emoji    @relation(fields: [emoji_id], references: [id], onDelete: Cascade, map: "fk_preaction_emoji")
+  post       post     @relation(fields: [post_id], references: [id], onDelete: Cascade, map: "fk_preaction_post")
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_preaction_user")
+
+  @@id([post_id, user_id, emoji_id])
+  @@index([emoji_id], map: "idx_preaction_emoji")
+  @@index([user_id], map: "idx_preaction_user")
+}
+
+model profile_visit {
+  id                                       Int      @id @default(autoincrement())
+  visitor_id                               Int
+  profile_user_id                          Int
+  visited_at                               DateTime @default(now()) @db.DateTime(0)
+  user_profile_visit_profile_user_idTouser user     @relation("profile_visit_profile_user_idTouser", fields: [profile_user_id], references: [id], onDelete: Cascade, map: "fk_pv_visited")
+  user_profile_visit_visitor_idTouser      user     @relation("profile_visit_visitor_idTouser", fields: [visitor_id], references: [id], onDelete: Cascade, map: "fk_pv_visitor")
+
+  @@index([visitor_id], map: "fk_pv_visitor")
+  @@index([profile_user_id, visited_at], map: "idx_pv_profile_time")
+}
+
+model report {
+  id          Int                @id @default(autoincrement())
+  reporter_id Int
+  target_type report_target_type
+  target_id   Int
+  reason      String?            @db.VarChar(512)
+  created_at  DateTime           @default(now()) @db.DateTime(0)
+  user        user               @relation(fields: [reporter_id], references: [id], onDelete: Cascade, map: "fk_report_reporter")
+
+  @@index([reporter_id], map: "fk_report_reporter")
+  @@index([target_type, target_id], map: "idx_report_target")
+}
+
+model search_history {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  keyword     String   @db.VarChar(255)
+  searched_at DateTime @default(now()) @db.DateTime(0)
+  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "fk_sh_user")
+
+  @@index([user_id, searched_at], map: "idx_sh_user_time")
+}
+
+model user_block {
+  id                                    Int      @id @default(autoincrement())
+  user_id                               Int
+  blocked_user_id                       Int
+  created_at                            DateTime @default(now()) @db.DateTime(0)
+  user_user_block_blocked_user_idTouser user     @relation("user_block_blocked_user_idTouser", fields: [blocked_user_id], references: [id], onDelete: Cascade, map: "fk_ub_blocked")
+  user_user_block_user_idTouser         user     @relation("user_block_user_idTouser", fields: [user_id], references: [id], onDelete: Cascade, map: "fk_ub_blocker")
+
+  @@unique([user_id, blocked_user_id], map: "unique_block")
+  @@index([blocked_user_id], map: "idx_ub_blocked")
+}
+
+enum report_target_type {
+  user
+  post
+  comment
+  file
+  chat_message
+  community
+}
+
+enum post_visibility {
+  public
+  followers
+  private
+}
+
+enum user_gender {
+  male
+  female
+}
+
+enum user_status {
+  active
+  inactive
+  suspended
+  deleted
+}
