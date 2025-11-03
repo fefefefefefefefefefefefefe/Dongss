@@ -1,0 +1,87 @@
+@base = http://localhost:3000
+@json = application/json
+@ts = {{$timestamp}}
+@rand = {{$randomInt 1000 9999}}
+
+# @name health
+GET {{base}}/health
+
+###
+### 1) register (중복 방지: rand/ts 사용)
+# @name register
+POST {{base}}/auth/register
+Content-Type: {{json}}
+
+{
+  "username": "dummy{{rand}}",
+  "email": "dummy{{ts}}@du.co.kr",
+  "password": "pass1234",
+  "student_no": "2025-{{rand}}",
+  "nickname": "더미{{rand}}",
+  "name": "Dummy {{rand}}"
+}
+
+###
+### 2) login (응답에서 access/refresh 받기)
+# @name login
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "usernameOrEmail": "{{register.response.body.user.username}}",
+  "password": "pass1234"
+}
+
+
+###
+### 2-1) login (응답에서 access/refresh 받기) 기존 생성했던 아이디.
+# @name login
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "usernameOrEmail": "admin",
+  "password": "pass1234"
+}
+
+
+###
+### 3) refresh (login 응답의 refresh로 새 access 발급)
+# @name refresh
+POST {{base}}/auth/refresh
+Content-Type: {{json}}
+
+{ "refresh": "{{login.response.body.refresh}}" }
+
+###
+### 4) me (refresh 응답의 access로 인증 확인)
+# @name me
+GET {{base}}/users/me
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+### 5) 홈 글쓰기 (토큰 필요)
+# @name postHome
+POST {{base}}/feed/home
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{ "content": "스모크 테스트 글입니다 #동스토리 #{{rand}}" }
+
+###
+### 6) 홈 피드 가져오기 (최신 5개)
+# @name feedHome
+GET {{base}}/feed/home?limit=5
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+### 7) 좋아요 토글 (방금 쓴 글 id로)
+# @name likeToggle
+POST {{base}}/like/{{postHome.response.body.id}}
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+### 8) 상호작용 상태 확인 (좋아요/북마크 등)
+# @name interactions
+GET {{base}}/interactions/{{postHome.response.body.id}}/status
+Authorization: Bearer {{refresh.response.body.access}}

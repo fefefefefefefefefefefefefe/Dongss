@@ -1,0 +1,99 @@
+@base = http://localhost:3000
+@json = application/json
+@ts = {{$timestamp}}
+@rand = {{$randomInt 1000 9999}}
+
+###
+# 0) 헬스체크
+GET {{base}}/health
+
+###
+# 1) 로그인 → access/refresh 확보 (이미 회원이면 이 단계만)
+# @name login
+POST {{base}}/auth/login
+Content-Type: {{json}}
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+###
+# 2) refresh → access 재발급 (이 access로 인증 헤더에 사용)
+# @name refresh
+POST {{base}}/auth/refresh
+Content-Type: {{json}}
+
+{
+  "refresh": "{{login.response.body.refresh}}"
+}
+
+###
+# 3) 샘플용 게시글 2개 생성 (키워드: 프로젝트 / 데이터)
+#    → 너희 프로젝트의 글 작성 엔드포인트에 맞추어 사용.
+#    아래는 예시: POST /feed/home  (다르면 /posts 로 바꿔서 사용)
+# @name post1
+POST {{base}}/feed/home
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{
+  "title": "프로젝트 공지 - v{{rand}}",
+  "content": "검색기능 점검용 본문입니다. 프로젝트 키워드 포함 - ts={{ts}}"
+}
+
+###
+# @name post2
+POST {{base}}/feed/home
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{
+  "title": "데이터 분석 메모 - v{{rand}}",
+  "content": "검색기능 점검용 본문입니다. 데이터 키워드 포함 - ts={{ts}} #공지"
+}
+
+###
+# 4) 사용자 검색 (닉네임/전공/이름/username LIKE)
+GET {{base}}/search/users?q=dummy&limit=10
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 5) 게시글 검색 - 키워드(프로젝트)
+GET {{base}}/search/posts?q=프로젝트&limit=10
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 6) 게시글 검색 - 키워드(데이터)
+GET {{base}}/search/posts?q=데이터&limit=10
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 7) 게시글 검색 - 해시태그(#공지)
+#    ※ 주의: 서버가 글 저장 시 태그를 post_tag로 파싱/저장하는 로직이 있어야 결과가 나옵니다.
+#       없다면 5)·6)처럼 키워드 검색만 먼저 검증하세요.
+GET {{base}}/search/posts?q=#공지&limit=10
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 8) 태그 자동완성/검색
+GET {{base}}/search/tags?q=#공
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 9) 게시글 검색 - 페이지네이션(커서 테스트)
+#    1페이지
+# @name posts_page1
+GET {{base}}/search/posts?q=프로젝트&limit=1
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+#    2페이지 (위 응답의 next_cursor 사용)
+GET {{base}}/search/posts?q=프로젝트&limit=1&cursor={{posts_page1.response.body.next_cursor}}
+Authorization: Bearer {{refresh.response.body.access}}
+
+###
+# 10) (선택) 통합 검색 엔드포인트를 켜놨다면 간단 점검
+#     GET /search?q=... 이 400이면 이 블록은 건너뛰면 됩니다.
+GET {{base}}/search?q=데이터 @dummy2 #공지&limit=6
+Authorization: Bearer {{refresh.response.body.access}}

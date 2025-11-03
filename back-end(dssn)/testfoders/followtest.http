@@ -1,0 +1,36 @@
+@base = http://localhost:3000
+
+
+@base = http://localhost:3000
+
+### 1) Login A
+# @name loginA
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+### 2) Login B
+# @name loginB
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy5",
+  "password": "pass1234"
+}
+
+### 3) (A→B) 팔로우 토글
+POST {{base}}/follows/toggle
+# ↓ 토큰 키 이름은 서버 응답에 맞춰 사용하세요.
+#   (예) access/refresh를 쓰는 경우: {{loginA.response.body.$.access}}
+#   (예) token 하나만 주는 경우:   {{loginA.response.body.$.token}}
+Authorization: Bearer {{loginA.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "user_id": {{loginB.response.body.$.user.id}}
+}

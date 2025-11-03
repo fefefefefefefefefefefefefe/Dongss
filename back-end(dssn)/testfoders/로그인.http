@@ -1,0 +1,46 @@
+### 0) Health
+GET http://localhost:3000/health
+
+### 1) Login
+# @name login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+### 2) Refresh (회전)
+# @name refresh
+POST http://localhost:3000/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh": "{{login.response.body.refresh}}"
+}
+
+### 3) 보호 API 호출(예: 내 알림 목록) — access 사용
+GET http://localhost:3000/notifications?limit=5
+Authorization: Bearer {{refresh.response.body.access}}
+
+### 4) 현재 기기 로그아웃
+POST http://localhost:3000/auth/logout
+Content-Type: application/json
+Authorization: Bearer {{refresh.response.body.access}}
+
+{
+  "refresh": "{{refresh.response.body.refresh}}"
+}
+
+### 5) 로그아웃 이후, 동일 refresh로 다시 재발급 시도 → 401 기대
+POST http://localhost:3000/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh": "{{refresh.response.body.refresh}}"
+}
+
+### 6) 전체 기기 로그아웃 (선택)
+POST http://localhost:3000/auth/logout/all
+Authorization: Bearer {{refresh.response.body.access}}

@@ -1,0 +1,258 @@
+@baseUrl = http://localhost:3000
+@communityId = 2         
+@targetUserId = 2        
+@limit = 10
+@rand = {{$randomInt 1000 9999}}
+
+@ts = {{$timestamp}}
+
+@json = application/json
+
+### 0. Health
+GET http://localhost:3000/health
+
+### 0) 회원가입
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "dummy3",
+  "email": "dummy3@du.co.kr",
+  "password": "pass1234",
+  "student_no": "2133333",
+  "nickname": "dummy3",
+  "department": "컴퓨터소프트웨어학과"
+}
+
+### 0-1) 로그인 (이후 요청에서 토큰 자동 참조)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+### 1) Login B
+# @name loginB
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy3",
+  "password": "pass1234"
+}
+
+### 2) 내 정보
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 2-1) 프로필 수정
+PATCH {{baseUrl}}/users/me
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "nickname": "dummy2올시다.",
+  "department": "컴퓨터소프트웨어학과"
+}
+
+### 3) 홈 피드 (무한스크롤 1페이지)
+GET {{baseUrl}}/feed/home?limit={{limit}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 3-1) 홈 글쓰기
+# @name createHomePost
+POST {{baseUrl}}/feed/home
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "title": "홈글-{{ts}}",
+  "content": "홈 본문 입니다. #home #{{rand}}"
+}
+
+### 3-2) 방금 만든 홈 글 상호작용 상태 확인
+GET {{baseUrl}}/interactions/{{createHomePost.response.body.$.id}}/status
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 4) 커뮤니티 목록
+GET {{baseUrl}}/communities?limit=20
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 4-1) 커뮤니티 피드(자유게시판, 커서 없이 1페이지)
+GET {{baseUrl}}/communities/{{communityId}}/feed?category=free&limit={{limit}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 4-2) 커뮤니티 글쓰기 (가입 없이 가능 / public만)
+# @name createCommunityPost
+POST {{baseUrl}}/communities/{{communityId}}/posts
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "category": "free",
+  "title": "자유글-{{$ts}}",
+  "content": "자유게시판 글쓰기 테스트 {{$rnd}} #community",
+  "files": []
+}
+
+### 4-3) 커뮤니티 피드(신규 글이 상단에 오는지)
+GET {{baseUrl}}/communities/{{communityId}}/feed?category=free&limit=5
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 5) 검색 (추천 사용자 / 인기 태그)
+GET {{baseUrl}}/suggest/users?limit=12
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+GET {{baseUrl}}/tags/trending?days=7&limit=10
+
+### 6) 팔로우 토글
+POST {{baseUrl}}/follows/toggle
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "user_id": {{targetUserId}}
+}
+
+### 7) 게시물 상호작용 (좋아요/북마크/리포스트) – 커뮤니티 글 기준
+POST {{baseUrl}}/like/{{createCommunityPost.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+POST {{baseUrl}}/bookmark/{{createCommunityPost.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+POST {{baseUrl}}/repost/{{createCommunityPost.response.body.$.id}}
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "quote": "인용: {{$ts}}"
+}
+
+### 7-1) 상호작용 상태 확인
+GET {{baseUrl}}/interactions/{{createCommunityPost.response.body.$.id}}/status
+Authorization: Bearer {{login.response.body.$.access}}
+
+
+### (선행) 로그인 → 토큰/유저 확보
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{json}}
+
+{
+  "usernameOrEmail": "dummy2",   
+  "password": "pass1234"
+}
+
+### (선행) access 재발급
+# @name refresh
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{json}}
+
+{ "refresh": "{{login.response.body.refresh}}" }
+
+### (선행) 홈 글 하나 만들기 (댓글 달 대상)
+# @name postHome
+POST {{baseUrl}}/feed/home
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{ "content": "댓글 테스트 시작! #{{$rand}}" }
+
+### 1) 댓글 작성 (parent_id 없음 = 일반 댓글)
+# @name c1
+POST {{baseUrl}}/comments
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{
+  "post_id": {{postHome.response.body.id}},
+  "content": "첫 댓글입니다. {{ts}}"
+}
+
+### 2) 대댓글 작성 (parent_id = 위 댓글 id)
+# @name r1
+POST {{baseUrl}}/comments
+Authorization: Bearer {{refresh.response.body.access}}
+Content-Type: {{json}}
+
+{
+  "post_id": {{postHome.response.body.id}},
+  "parent_id": {{c1.response.body.id}},
+  "content": "대댓글입니다. {{ts}}"
+}
+
+### 4) 댓글 좋아요 토글 (첫 호출 좋아요, 재호출 취소)
+# @name clike1
+POST {{baseUrl}}/comments/{{c1.response.body.id}}/like
+Authorization: Bearer {{refresh.response.body.access}}
+
+### 5) 댓글 좋아요 토글(한 번 더 눌러 해제되는지)
+# @name clike2
+POST {{baseUrl}}/comments/{{c1.response.body.id}}/like
+Authorization: Bearer {{refresh.response.body.access}}
+
+### 6) 댓글 삭제(소프트 삭제 권장)
+# @name cdel
+DELETE {{baseUrl}}/comments/{{c1.response.body.id}}
+Authorization: Bearer {{refresh.response.body.access}}
+
+### 7) 삭제 후 목록 재조회 (내용 마스킹/표시 정책 확인)
+GET {{baseUrl}}/posts/{{postHome.response.body.id}}/comments?limit=20
+Authorization: Bearer {{refresh.response.body.access}}
+
+### 9) 알림
+GET {{baseUrl}}/notifications?limit=20
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+GET {{baseUrl}}/notifications/unread-count
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 10) 채팅: DM 생성 → 메시지 전송 → 목록
+# @name createDm
+POST {{baseUrl}}/chats/dm/{{targetUserId}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+POST {{baseUrl}}/chats/{{createDm.response.body.$.id}}/messages
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "message": "안녕하세요! {{$ts}}"
+}
+
+###
+GET {{baseUrl}}/chats/{{createDm.response.body.$.id}}/messages?limit=30
+Authorization: Bearer {{login.response.body.$.access}}
+
+### 11) 토큰 재발급 → 교체 확인 → 로그아웃
+# @name refresh
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh": "{{login.response.body.$.refresh}}"
+}
+
+###
+# 재발급 받은 access로 내 정보 확인
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{refresh.response.body.$.access}}
+
+###
+# 현재 기기 로그아웃
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{refresh.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "refresh": "{{refresh.response.body.$.refresh}}"
+}

@@ -1,0 +1,62 @@
+@base = http://localhost:3000
+@cid = 1
+@limit = 10
+
+### 로그인
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "usernameOrEmail": "dummy6594", "password": "pass1234" }
+
+### 카테고리(탭 라벨)
+GET {{base}}/communities/categories
+
+### (가입 없이) 글 게시 - 자유
+POST {{base}}/communities/{{cid}}/posts
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "category": "free",
+  "title": "자유글 테스트",
+  "content": "자유 게시판 본문입니다.",
+  "files": []
+}
+
+### (가입 없이) 글 게시 - 정보공유 (이미지 URL 첨부 예시)
+POST {{base}}/communities/{{cid}}/posts
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "category": "info",
+  "title": "정보공유 테스트",
+  "content": "이미지 첨부 테스트",
+  "files": [
+    {"url":"https://picsum.photos/seed/1/640/360","is_thumbnail":true}
+  ]
+}
+
+### (가입 없이) 글 게시 - 질문
+POST {{base}}/communities/{{cid}}/posts
+Authorization: Bearer {{login.response.body.$.access}}
+Content-Type: application/json
+
+{
+  "category": "qna",
+  "title": "질문 테스트",
+  "content": "질문 내용입니다."
+}
+
+### 각 탭 피드 확인
+GET {{base}}/communities/{{cid}}/feed?category=free&limit={{limit}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+GET {{base}}/communities/{{cid}}/feed?category=info&limit={{limit}}
+Authorization: Bearer {{login.response.body.$.access}}
+
+###
+GET {{base}}/communities/{{cid}}/feed?category=qna&limit={{limit}}
+Authorization: Bearer {{login.response.body.$.access}}

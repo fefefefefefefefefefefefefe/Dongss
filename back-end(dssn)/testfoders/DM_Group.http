@@ -1,0 +1,85 @@
+### 0. Health
+GET http://localhost:3000/health
+
+### 1) 로그인 A
+# @name loginA
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+### 2) 로그인 B
+# @name loginB
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy3",
+  "password": "pass1234"
+}
+
+### 3) DM 만들기(또는 기존 DM 찾기)  ← 바디 없음!
+# @name dmRoom
+POST http://localhost:3000/chats/dm/{{loginB.response.body.user.id}}
+Authorization: Bearer {{loginA.response.body.access}}
+
+### 4) DM 목록 (A)
+GET http://localhost:3000/chats/dm
+Authorization: Bearer {{loginA.response.body.access}}
+
+### 5) DM 메시지 보내기
+POST http://localhost:3000/chats/{{dmRoom.response.body.id}}/messages
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "message": "안녕(B)!",
+  "file_url": null
+}
+
+### 6) 로그인 C (그룹 테스트용)
+# @name loginC
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy4",
+  "password": "pass1234"
+}
+
+### 7) 그룹 만들기 (A + B + C)
+# @name groupRoom
+POST http://localhost:3000/chats/groups
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "title": "DSSN 팀 채팅",
+  "user_ids": [ {{loginB.response.body.user.id}}, {{loginC.response.body.user.id}} ]
+}
+
+### 8) 그룹 목록 (A)
+GET http://localhost:3000/chats/groups
+Authorization: Bearer {{loginA.response.body.access}}
+
+### 9) 그룹에 메시지 보내기
+POST http://localhost:3000/chats/{{groupRoom.response.body.id}}/messages
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "message": "반가워요 팀원들!",
+  "file_url": null
+}
+
+### 10) (오류 케이스) DM에 초대 시도 → 400 예상
+POST http://localhost:3000/chats/{{dmRoom.response.body.id}}/invite
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "user_ids": [ {{loginC.response.body.user.id}} ]
+}

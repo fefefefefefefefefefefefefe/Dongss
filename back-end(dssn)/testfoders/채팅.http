@@ -1,0 +1,148 @@
+### 0. Health
+GET http://localhost:3000/health
+
+### 1. 로그인 (사용자 A)
+# @name loginA
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy3",
+  "password": "pass1234"
+}
+
+### 2. 로그인 (사용자 B)
+# @name loginB
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy2",
+  "password": "pass1234"
+}
+
+### 2. 로그인 (사용자 C)
+# @name loginC
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy7",
+  "password": "pass1234"
+}
+
+### 3. 방 만들기 (A가 B와 1:1 방 생성)
+# @name createRoomAB
+POST http://localhost:3000/chats
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "title": null,
+  "user_ids": [
+    {{loginB.response.body.user.id}}
+  ]
+}
+
+### 3. 방 만들기 (A가 B와 1:1 방 생성)
+# @name createRoom
+POST http://localhost:3000/chats
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "title": null,
+  "user_ids": [
+    {{loginC.response.body.user.id}}
+  ]
+}
+
+### 4. 내 채팅방 목록 (A)
+GET http://localhost:3000/chats
+Authorization: Bearer {{loginA.response.body.access}}
+
+### 5. 방의 메시지 목록 (처음 로드, 최신 → 과거)
+# @name listMsgs1
+GET http://localhost:3000/chats/{{createRoomAB.response.body.id}}/messages?limit=10
+Authorization: Bearer {{loginA.response.body.access}}
+
+### 6. 다음 페이지 (있을 때만)
+GET http://localhost:3000/chats/{{createRoomAB.response.body.id}}/messages?limit=10&cursor={{listMsgs1.response.body.nextCursor}}
+Authorization: Bearer {{loginA.response.body.access}}
+
+
+### 7. 텍스트 메시지 보내기 (A → 방)
+POST http://localhost:3000/chats/{{createRoomAB.response.body.id}}/messages
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "message": "명훈이는 바보234",
+  "file_url": null
+}
+
+### 8. 파일 메시지 보내기 (선택)
+POST http://localhost:3000/chats/{{createRoomAB.response.body.id}}/messages
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "message": null,
+  "file_url": "https://example.com/test.png"
+}
+
+### 9. (B) 채팅방 목록
+GET http://localhost:3000/chats
+Authorization: Bearer {{loginB.response.body.access}}
+
+### 10. (B) 메시지 목록
+GET http://localhost:3000/chats/{{createRoomAB.response.body.id}}/messages?limit=10
+Authorization: Bearer {{loginB.response.body.access}}
+
+### 11. (A) 방에 사용자 초대 (예: C를 추가. 없으면 스킵)
+# @name loginC
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "dummy7",
+  "password": "pass1234"
+}
+
+### 12. (A) C를 초대
+POST http://localhost:3000/chats/{{createRoomAB.response.body.id}}/invite
+Authorization: Bearer {{loginA.response.body.access}}
+Content-Type: application/json
+
+{
+  "user_ids": [ {{loginB.response.body.user.id}} ]
+}
+
+### 13. (B) 방 나가기
+POST http://localhost:3000/chats/{{createRoomAB.response.body.id}}/leave
+Authorization: Bearer {{loginB.response.body.access}}
+
+### 14. (B) 안 읽은 갯수
+GET http://localhost:3000/notifications/unread-count
+Authorization: Bearer {{loginB.response.body.access}}
+
+### 15. (B) 알림 목록
+# @name listNotiB
+GET http://localhost:3000/notifications?limit=20
+Authorization: Bearer {{loginB.response.body.access}}
+
+### 16. (B) 읽음 처리 (첫 1~2개 예시)
+PATCH http://localhost:3000/notifications/read
+Authorization: Bearer {{loginB.response.body.access}}
+Content-Type: application/json
+
+{
+  "ids": [
+    {{listNotiB.response.body.items[0].id}},
+    {{listNotiB.response.body.items[1].id}}
+  ]
+}
+
+### 17. (B) 모두 읽음
+POST http://localhost:3000/notifications/read-all
+Authorization: Bearer {{loginB.response.body.access}}
