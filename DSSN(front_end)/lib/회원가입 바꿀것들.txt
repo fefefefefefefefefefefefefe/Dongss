@@ -1,0 +1,17 @@
+username(학번 7자리) 무조건 7자리 
+
+password
+
+email(학번에@du.ac.kr) 무조건 @du.ac.kr
+
+name (실명) 필수
+
+nickname (계정이름)    
+
+profile_img
+
+gender (성별) 남자 여자
+
+department (학과) 
+
+birthday (생년월일) 8자리.
